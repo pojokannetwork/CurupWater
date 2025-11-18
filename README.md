@@ -123,7 +123,19 @@ chmod 755 img/uploads/
 
 Untuk Windows, pastikan folder tersebut memiliki write permission.
 
-#### 5. Akses Website
+#### 5. Verifikasi Instalasi
+Jalankan installation checker untuk memastikan semua setup benar:
+```
+http://localhost/CurupWater/install-check.php
+```
+
+Script ini akan memeriksa:
+- PHP version dan extensions
+- Struktur folder dan permissions
+- Koneksi database
+- Keberadaan tabel-tabel
+
+#### 6. Akses Website
 
 ##### Landing Page
 Buka browser dan akses:
