@@ -34,6 +34,8 @@ $recent_messages = $conn->query("SELECT * FROM messages ORDER BY created_at DESC
                 <?php if (isset($_SESSION['admin_role'])): ?>
                     <?php if ($_SESSION['admin_role'] === 'super_admin'): ?>
                         <span class="role-badge super-admin">SUPER ADMIN</span>
+                    <?php elseif ($_SESSION['admin_role'] === 'app_admin'): ?>
+                        <span class="role-badge app-admin">ADMIN APLIKASI</span>
                     <?php else: ?>
                         <span class="role-badge admin">ADMIN</span>
                     <?php endif; ?>
@@ -76,7 +78,7 @@ $recent_messages = $conn->query("SELECT * FROM messages ORDER BY created_at DESC
                     <span class="badge"><?php echo $stats['messages']; ?></span>
                     <?php endif; ?>
                 </a>
-                <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'super_admin'): ?>
+                <?php if (isset($_SESSION['admin_role']) && ($_SESSION['admin_role'] === 'super_admin' || $_SESSION['admin_role'] === 'app_admin')): ?>
                 <div class="nav-divider">MANAGEMEN APLIKASI</div>
                 <a href="pages/app-management.php" class="nav-item">
                     <i class="fas fa-cogs"></i>
@@ -95,6 +97,8 @@ $recent_messages = $conn->query("SELECT * FROM messages ORDER BY created_at DESC
                     <p>Selamat datang, <strong><?= $_SESSION['admin_username'] ?></strong>! 
                     <?php if ($_SESSION['admin_role'] === 'super_admin'): ?>
                         <span class="role-badge-small super-admin"><i class="fas fa-crown"></i> Super Admin</span>
+                    <?php elseif ($_SESSION['admin_role'] === 'app_admin'): ?>
+                        <span class="role-badge-small app-admin"><i class="fas fa-user-cog"></i> Admin Aplikasi</span>
                     <?php else: ?>
                         <span class="role-badge-small admin"><i class="fas fa-user"></i> Admin</span>
                     <?php endif; ?>

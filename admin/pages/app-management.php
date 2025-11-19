@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_role'] !== 'super_admin') {
+if (!isset($_SESSION['admin_logged_in']) || ($_SESSION['admin_role'] !== 'super_admin' && $_SESSION['admin_role'] !== 'app_admin')) {
     header('Location: ../login.php');
     exit();
 }
@@ -15,41 +15,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
             $role = $_POST['role'];
             
-            $stmt = $conn->prepare("INSERT INTO admin (username, password, role) VALUES (?, ?, ?)");
-            $stmt->bind_param("sss", $username, $password, $role);
-            
-            if ($stmt->execute()) {
-                $success = "Admin berhasil ditambahkan!";
+            // App admin cannot create super admin
+            if ($_SESSION['admin_role'] === 'app_admin' && $role === 'super_admin') {
+                $error = "Admin Aplikasi tidak dapat membuat Super Admin!";
             } else {
-                $error = "Gagal menambahkan admin: " . $stmt->error;
+                $stmt = $conn->prepare("INSERT INTO admin (username, password, role) VALUES (?, ?, ?)");
+                $stmt->bind_param("sss", $username, $password, $role);
+                
+                if ($stmt->execute()) {
+                    $success = "Admin berhasil ditambahkan!";
+                } else {
+                    $error = "Gagal menambahkan admin: " . $stmt->error;
+                }
+                $stmt->close();
             }
-            $stmt->close();
         } elseif ($_POST['action'] === 'edit') {
             $id = $_POST['id'];
             $username = $_POST['username'];
             $role = $_POST['role'];
             
-            if (!empty($_POST['password'])) {
-                $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-                $stmt = $conn->prepare("UPDATE admin SET username=?, password=?, role=? WHERE id=?");
-                $stmt->bind_param("sssi", $username, $password, $role, $id);
-            } else {
-                $stmt = $conn->prepare("UPDATE admin SET username=?, role=? WHERE id=?");
-                $stmt->bind_param("ssi", $username, $role, $id);
-            }
+            // Get current admin data
+            $check = $conn->query("SELECT role FROM admin WHERE id = $id");
+            $current = $check->fetch_assoc();
             
-            if ($stmt->execute()) {
-                $success = "Admin berhasil diupdate!";
+            // App admin cannot edit super admin
+            if ($_SESSION['admin_role'] === 'app_admin' && $current['role'] === 'super_admin') {
+                $error = "Admin Aplikasi tidak dapat mengedit Super Admin!";
+            } elseif ($_SESSION['admin_role'] === 'app_admin' && $role === 'super_admin') {
+                $error = "Admin Aplikasi tidak dapat mengubah role menjadi Super Admin!";
             } else {
-                $error = "Gagal update admin: " . $stmt->error;
+                if (!empty($_POST['password'])) {
+                    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+                    $stmt = $conn->prepare("UPDATE admin SET username=?, password=?, role=? WHERE id=?");
+                    $stmt->bind_param("sssi", $username, $password, $role, $id);
+                } else {
+                    $stmt = $conn->prepare("UPDATE admin SET username=?, role=? WHERE id=?");
+                    $stmt->bind_param("ssi", $username, $role, $id);
+                }
+                
+                if ($stmt->execute()) {
+                    $success = "Admin berhasil diupdate!";
+                } else {
+                    $error = "Gagal update admin: " . $stmt->error;
+                }
+                $stmt->close();
             }
-            $stmt->close();
         } elseif ($_POST['action'] === 'delete') {
             $id = $_POST['id'];
+            
+            // Get admin data to check role
+            $check = $conn->query("SELECT role FROM admin WHERE id = $id");
+            $target = $check->fetch_assoc();
             
             // Prevent deleting self
             if ($id == $_SESSION['admin_id']) {
                 $error = "Tidak dapat menghapus akun sendiri!";
+            } elseif ($_SESSION['admin_role'] === 'app_admin' && $target['role'] === 'super_admin') {
+                $error = "Admin Aplikasi tidak dapat menghapus Super Admin!";
             } else {
                 $stmt = $conn->prepare("DELETE FROM admin WHERE id = ?");
                 $stmt->bind_param("i", $id);
@@ -72,6 +94,7 @@ $admins = $conn->query("SELECT * FROM admin ORDER BY created_at DESC");
 $stats = [];
 $stats['total_admins'] = $conn->query("SELECT COUNT(*) as count FROM admin")->fetch_assoc()['count'];
 $stats['super_admins'] = $conn->query("SELECT COUNT(*) as count FROM admin WHERE role='super_admin'")->fetch_assoc()['count'];
+$stats['app_admins'] = $conn->query("SELECT COUNT(*) as count FROM admin WHERE role='app_admin'")->fetch_assoc()['count'];
 $stats['regular_admins'] = $conn->query("SELECT COUNT(*) as count FROM admin WHERE role='admin'")->fetch_assoc()['count'];
 $stats['total_products'] = $conn->query("SELECT COUNT(*) as count FROM products")->fetch_assoc()['count'];
 $stats['total_messages'] = $conn->query("SELECT COUNT(*) as count FROM messages")->fetch_assoc()['count'];
@@ -95,7 +118,11 @@ $stats['total_videos'] = $conn->query("SELECT COUNT(*) as count FROM gallery_vid
             <div class="sidebar-header">
                 <img src="../../assets/img/logo.svg" alt="Curup Water Logo" class="sidebar-logo">
                 <h2>Curup Water</h2>
-                <span class="role-badge super-admin">SUPER ADMIN</span>
+                <?php if ($_SESSION['admin_role'] === 'super_admin'): ?>
+                    <span class="role-badge super-admin">SUPER ADMIN</span>
+                <?php elseif ($_SESSION['admin_role'] === 'app_admin'): ?>
+                    <span class="role-badge app-admin">ADMIN APLIKASI</span>
+                <?php endif; ?>
             </div>
             <nav class="sidebar-nav">
                 <a href="../index.php"><i class="fas fa-home"></i> Dashboard</a>
@@ -153,6 +180,15 @@ $stats['total_videos'] = $conn->query("SELECT COUNT(*) as count FROM gallery_vid
                     </div>
                 </div>
                 <div class="stat-card">
+                    <div class="stat-icon" style="background: #fff3e0;">
+                        <i class="fas fa-user-cog" style="color: #f57c00;"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3><?= $stats['app_admins'] ?></h3>
+                        <p>Admin Aplikasi</p>
+                    </div>
+                </div>
+                <div class="stat-card">
                     <div class="stat-icon" style="background: #e8f5e9;">
                         <i class="fas fa-user-shield" style="color: #388e3c;"></i>
                     </div>
@@ -196,11 +232,17 @@ $stats['total_videos'] = $conn->query("SELECT COUNT(*) as count FROM gallery_vid
                                 <label>Role *</label>
                                 <select name="role" required class="form-control">
                                     <option value="admin">Admin Website</option>
-                                    <option value="super_admin">Super Admin</option>
+                                    <option value="app_admin">Admin Aplikasi</option>
+                                    <?php if ($_SESSION['admin_role'] === 'super_admin'): ?>
+                                        <option value="super_admin">Super Admin</option>
+                                    <?php endif; ?>
                                 </select>
                                 <small>
                                     <strong>Admin Website:</strong> Kelola konten website<br>
-                                    <strong>Super Admin:</strong> Akses penuh + kelola admin
+                                    <strong>Admin Aplikasi:</strong> Kelola admin & lihat statistik
+                                    <?php if ($_SESSION['admin_role'] === 'super_admin'): ?>
+                                        <br><strong>Super Admin:</strong> Akses penuh semua fitur
+                                    <?php endif; ?>
                                 </small>
                             </div>
                         </div>
@@ -244,6 +286,10 @@ $stats['total_videos'] = $conn->query("SELECT COUNT(*) as count FROM gallery_vid
                                                 <span class="role-badge super-admin">
                                                     <i class="fas fa-crown"></i> Super Admin
                                                 </span>
+                                            <?php elseif ($admin['role'] === 'app_admin'): ?>
+                                                <span class="role-badge app-admin">
+                                                    <i class="fas fa-user-cog"></i> Admin Aplikasi
+                                                </span>
                                             <?php else: ?>
                                                 <span class="role-badge admin">
                                                     <i class="fas fa-user"></i> Admin Website
@@ -252,10 +298,15 @@ $stats['total_videos'] = $conn->query("SELECT COUNT(*) as count FROM gallery_vid
                                         </td>
                                         <td><?= date('d/m/Y H:i', strtotime($admin['created_at'])) ?></td>
                                         <td>
-                                            <button class="btn btn-sm btn-primary" onclick="editAdmin(<?= $admin['id'] ?>, '<?= htmlspecialchars($admin['username']) ?>', '<?= $admin['role'] ?>')">
+                                            <button class="btn btn-sm btn-primary" 
+                                                <?php if ($_SESSION['admin_role'] === 'app_admin' && $admin['role'] === 'super_admin'): ?>
+                                                    disabled title="Tidak dapat mengedit Super Admin"
+                                                <?php else: ?>
+                                                    onclick="editAdmin(<?= $admin['id'] ?>, '<?= htmlspecialchars($admin['username']) ?>', '<?= $admin['role'] ?>')"
+                                                <?php endif; ?>>
                                                 <i class="fas fa-edit"></i> Edit
                                             </button>
-                                            <?php if ($admin['id'] != $_SESSION['admin_id']): ?>
+                                            <?php if ($admin['id'] != $_SESSION['admin_id'] && !($_SESSION['admin_role'] === 'app_admin' && $admin['role'] === 'super_admin')): ?>
                                                 <form method="POST" style="display: inline;" onsubmit="return confirm('Yakin ingin menghapus admin ini?')">
                                                     <input type="hidden" name="action" value="delete">
                                                     <input type="hidden" name="id" value="<?= $admin['id'] ?>">
@@ -298,7 +349,10 @@ $stats['total_videos'] = $conn->query("SELECT COUNT(*) as count FROM gallery_vid
                     <label>Role *</label>
                     <select name="role" id="edit_role" required class="form-control">
                         <option value="admin">Admin Website</option>
-                        <option value="super_admin">Super Admin</option>
+                        <option value="app_admin">Admin Aplikasi</option>
+                        <?php if ($_SESSION['admin_role'] === 'super_admin'): ?>
+                            <option value="super_admin">Super Admin</option>
+                        <?php endif; ?>
                     </select>
                 </div>
 
