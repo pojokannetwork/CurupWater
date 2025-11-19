@@ -1,353 +1,234 @@
 <?php
 session_start();
-
-require_once __DIR__ . '/../includes/Admin.php';
-
-// Check login
-if (!Admin::isLoggedIn()) {
-    header("Location: ../login.php");
-    exit();
+if (!isset($_SESSION['admin_id'])) {
+    header('Location: ../login.php');
+    exit;
 }
+require_once '../../config/database.php';
 
-require_once __DIR__ . '/../includes/Product.php';
-
-$product = new Product();
-$message = '';
-$message_type = '';
-
-// Handle Delete
-if (isset($_GET['delete'])) {
-    $product->id = $_GET['delete'];
-    
-    // Delete image file if exists
-    if ($product->readOne() && !empty($product->image)) {
-        $image_path = __DIR__ . '/../../img/products/' . $product->image;
-        if (file_exists($image_path)) {
-            unlink($image_path);
-        }
-    }
-    
-    if ($product->delete()) {
-        $message = 'Produk berhasil dihapus!';
-        $message_type = 'success';
-    } else {
-        $message = 'Gagal menghapus produk!';
-        $message_type = 'danger';
-    }
-}
-
-// Handle Add/Edit
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $product->name = $_POST['name'];
-    $product->description = $_POST['description'];
-    $product->price = $_POST['price'];
-    $product->stock = $_POST['stock'];
-    $product->is_active = isset($_POST['is_active']) ? 1 : 0;
-    
-    // Handle image upload
-    $image_name = $_POST['old_image'] ?? '';
-    
-    if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
-        $allowed = ['jpg', 'jpeg', 'png', 'gif'];
-        $filename = $_FILES['image']['name'];
-        $filetype = pathinfo($filename, PATHINFO_EXTENSION);
-        
-        if (in_array(strtolower($filetype), $allowed)) {
-            $new_filename = uniqid() . '_' . time() . '.' . $filetype;
-            $upload_path = __DIR__ . '/../../img/products/' . $new_filename;
+// Handle form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['action'])) {
+        if ($_POST['action'] === 'add') {
+            $name = $conn->real_escape_string($_POST['name']);
+            $description = $conn->real_escape_string($_POST['description']);
+            $size = $conn->real_escape_string($_POST['size']);
+            $price = (float)$_POST['price'];
+            $is_featured = isset($_POST['is_featured']) ? 1 : 0;
+            $is_active = isset($_POST['is_active']) ? 1 : 0;
+            $order_num = (int)$_POST['order_num'];
             
-            if (move_uploaded_file($_FILES['image']['tmp_name'], $upload_path)) {
-                // Delete old image
-                if (!empty($image_name)) {
-                    $old_path = __DIR__ . '/../../img/products/' . $image_name;
-                    if (file_exists($old_path)) {
-                        unlink($old_path);
-                    }
-                }
-                $image_name = $new_filename;
+            $image = '';
+            if (isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
+                $image = time() . '_' . basename($_FILES['image']['name']);
+                move_uploaded_file($_FILES['image']['tmp_name'], '../../assets/img/products/' . $image);
             }
-        }
-    }
-    
-    $product->image = $image_name;
-    
-    if (isset($_POST['id']) && !empty($_POST['id'])) {
-        // Update
-        $product->id = $_POST['id'];
-        if ($product->update()) {
-            $message = 'Produk berhasil diupdate!';
-            $message_type = 'success';
-        } else {
-            $message = 'Gagal mengupdate produk!';
-            $message_type = 'danger';
-        }
-    } else {
-        // Create
-        if ($product->create()) {
-            $message = 'Produk berhasil ditambahkan!';
-            $message_type = 'success';
-        } else {
-            $message = 'Gagal menambahkan produk!';
-            $message_type = 'danger';
+            
+            $sql = "INSERT INTO products (name, description, size, price, image, is_featured, is_active, order_num) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("sssdssii", $name, $description, $size, $price, $image, $is_featured, $is_active, $order_num);
+            
+            if ($stmt->execute()) {
+                $success = "Produk berhasil ditambahkan!";
+            } else {
+                $error = "Gagal menambahkan produk!";
+            }
+        } elseif ($_POST['action'] === 'delete') {
+            $id = (int)$_POST['id'];
+            $conn->query("DELETE FROM products WHERE id = $id");
+            $success = "Produk berhasil dihapus!";
         }
     }
 }
 
 // Get all products
-$stmt = $product->read();
-
-// Check if edit mode
-$edit_mode = false;
-$edit_product = null;
-if (isset($_GET['edit'])) {
-    $edit_mode = true;
-    $product->id = $_GET['edit'];
-    if ($product->readOne()) {
-        $edit_product = $product;
-    }
-}
+$products = $conn->query("SELECT * FROM products ORDER BY order_num ASC");
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manajemen Produk - CurupWater Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Kelola Produk - Admin Curup Water</title>
+    <link rel="stylesheet" href="../../assets/css/admin.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .sidebar {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
-            padding: 12px 20px;
-            margin: 5px 0;
-            border-radius: 8px;
-            transition: all 0.3s;
-        }
-        .sidebar .nav-link:hover,
-        .sidebar .nav-link.active {
-            background: rgba(255,255,255,0.2);
-            color: white;
-        }
-        .product-image {
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-            border-radius: 8px;
-        }
-    </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <nav class="col-md-3 col-lg-2 d-md-block sidebar p-3">
-                <div class="text-center mb-4">
-                    <i class="fas fa-water fa-3x mb-2"></i>
-                    <h4>CurupWater</h4>
-                    <small>Admin Panel</small>
-                </div>
-                <hr class="bg-light">
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="../index.php">
-                            <i class="fas fa-home me-2"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="products.php">
-                            <i class="fas fa-box me-2"></i>Produk
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="features.php">
-                            <i class="fas fa-star me-2"></i>Keunggulan
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="about.php">
-                            <i class="fas fa-info-circle me-2"></i>Tentang Kami
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="contact.php">
-                            <i class="fas fa-phone me-2"></i>Kontak
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="hero.php">
-                            <i class="fas fa-image me-2"></i>Hero Section
-                        </a>
-                    </li>
-                    <li class="nav-item mt-3">
-                        <a class="nav-link" href="../../index.php" target="_blank">
-                            <i class="fas fa-external-link-alt me-2"></i>Lihat Website
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="../logout.php" onclick="return confirm('Yakin ingin logout?')">
-                            <i class="fas fa-sign-out-alt me-2"></i>Logout
-                        </a>
-                    </li>
-                </ul>
+    <div class="admin-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="../../assets/img/logo.svg" alt="Curup Water" class="sidebar-logo">
+                <h2>CURUP WATER</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="../index.php" class="nav-item">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="hero.php" class="nav-item">
+                    <i class="fas fa-images"></i>
+                    <span>Hero Slides</span>
+                </a>
+                <a href="products.php" class="nav-item active">
+                    <i class="fas fa-box"></i>
+                    <span>Produk</span>
+                </a>
+                <a href="about.php" class="nav-item">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Tentang Kami</span>
+                </a>
+                <a href="contact.php" class="nav-item">
+                    <i class="fas fa-address-book"></i>
+                    <span>Kontak</span>
+                </a>
+                <a href="messages.php" class="nav-item">
+                    <i class="fas fa-envelope"></i>
+                    <span>Pesan</span>
+                </a>
             </nav>
+        </aside>
 
-            <!-- Main Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="fas fa-box me-2"></i>Manajemen Produk</h2>
-                    <a href="../index.php" class="btn btn-outline-secondary">
-                        <i class="fas fa-arrow-left me-2"></i>Kembali
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="page-title">
+                    <h1>Kelola Produk</h1>
+                </div>
+                <div class="top-bar-actions">
+                    <a href="../../index.php#products" class="btn btn-sm" target="_blank">
+                        <i class="fas fa-eye"></i> Lihat Website
+                    </a>
+                    <a href="../logout.php" class="btn btn-sm btn-danger">
+                        <i class="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </div>
+            </header>
 
-                <?php if ($message): ?>
-                    <div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show" role="alert">
-                        <?php echo $message; ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
+            <!-- Content -->
+            <div class="content">
+                <?php if (isset($success)): ?>
+                    <div class="alert alert-success"><?php echo $success; ?></div>
+                <?php endif; ?>
+                <?php if (isset($error)): ?>
+                    <div class="alert alert-error"><?php echo $error; ?></div>
                 <?php endif; ?>
 
-                <!-- Form Add/Edit -->
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">
-                            <i class="fas fa-<?php echo $edit_mode ? 'edit' : 'plus'; ?> me-2"></i>
-                            <?php echo $edit_mode ? 'Edit Produk' : 'Tambah Produk Baru'; ?>
-                        </h5>
+                <!-- Add New Product -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Tambah Produk Baru</h2>
                     </div>
                     <div class="card-body">
                         <form method="POST" enctype="multipart/form-data">
-                            <?php if ($edit_mode): ?>
-                                <input type="hidden" name="id" value="<?php echo $edit_product->id; ?>">
-                                <input type="hidden" name="old_image" value="<?php echo $edit_product->image; ?>">
-                            <?php endif; ?>
-                            
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="name" class="form-label">Nama Produk *</label>
-                                    <input type="text" class="form-control" id="name" name="name" 
-                                           value="<?php echo $edit_mode ? htmlspecialchars($edit_product->name) : ''; ?>" required>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <label for="price" class="form-label">Harga (Rp) *</label>
-                                    <input type="number" class="form-control" id="price" name="price" step="0.01"
-                                           value="<?php echo $edit_mode ? $edit_product->price : ''; ?>" required>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <label for="stock" class="form-label">Stok *</label>
-                                    <input type="number" class="form-control" id="stock" name="stock" 
-                                           value="<?php echo $edit_mode ? $edit_product->stock : '0'; ?>" required>
+                            <input type="hidden" name="action" value="add">
+                            <div class="form-group">
+                                <label>Nama Produk</label>
+                                <input type="text" name="name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Deskripsi</label>
+                                <textarea name="description" rows="3"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Ukuran</label>
+                                <input type="text" name="size" placeholder="19 Liter" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Harga (Rp)</label>
+                                <input type="number" name="price" min="0" step="100" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Gambar</label>
+                                <input type="file" name="image" accept="image/*">
+                            </div>
+                            <div class="form-group">
+                                <label>Urutan</label>
+                                <input type="number" name="order_num" value="0">
+                            </div>
+                            <div class="form-group">
+                                <div class="form-check">
+                                    <input type="checkbox" name="is_featured">
+                                    <label>Produk Unggulan</label>
                                 </div>
                             </div>
-                            
-                            <div class="mb-3">
-                                <label for="description" class="form-label">Deskripsi</label>
-                                <textarea class="form-control" id="description" name="description" rows="3"><?php echo $edit_mode ? htmlspecialchars($edit_product->description) : ''; ?></textarea>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="image" class="form-label">Gambar Produk</label>
-                                    <input type="file" class="form-control" id="image" name="image" accept="image/*">
-                                    <small class="text-muted">Format: JPG, JPEG, PNG, GIF (Max 2MB)</small>
-                                    <?php if ($edit_mode && $edit_product->image): ?>
-                                        <div class="mt-2">
-                                            <img src="../../img/products/<?php echo $edit_product->image; ?>" alt="Current" class="product-image">
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Status</label>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
-                                               <?php echo ($edit_mode && $edit_product->is_active) || !$edit_mode ? 'checked' : ''; ?>>
-                                        <label class="form-check-label" for="is_active">Aktif</label>
-                                    </div>
+                            <div class="form-group">
+                                <div class="form-check">
+                                    <input type="checkbox" name="is_active" checked>
+                                    <label>Aktif</label>
                                 </div>
                             </div>
-                            
-                            <div class="d-flex gap-2">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save me-2"></i><?php echo $edit_mode ? 'Update' : 'Simpan'; ?>
-                                </button>
-                                <?php if ($edit_mode): ?>
-                                    <a href="products.php" class="btn btn-secondary">
-                                        <i class="fas fa-times me-2"></i>Batal
-                                    </a>
-                                <?php endif; ?>
-                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Simpan
+                            </button>
                         </form>
                     </div>
                 </div>
 
                 <!-- Products List -->
-                <div class="card shadow-sm">
-                    <div class="card-header bg-white">
-                        <h5 class="mb-0"><i class="fas fa-list me-2"></i>Daftar Produk</h5>
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Daftar Produk</h2>
                     </div>
                     <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Gambar</th>
-                                        <th>Nama</th>
-                                        <th>Deskripsi</th>
-                                        <th>Harga</th>
-                                        <th>Stok</th>
-                                        <th>Status</th>
-                                        <th>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php while ($row = $stmt->fetch()): ?>
-                                    <tr>
-                                        <td>
-                                            <?php if ($row['image']): ?>
-                                                <img src="../../img/products/<?php echo $row['image']; ?>" alt="<?php echo htmlspecialchars($row['name']); ?>" class="product-image">
-                                            <?php else: ?>
-                                                <div class="product-image bg-secondary d-flex align-items-center justify-content-center">
-                                                    <i class="fas fa-image text-white"></i>
-                                                </div>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td><?php echo htmlspecialchars($row['name']); ?></td>
-                                        <td><?php echo substr(htmlspecialchars($row['description']), 0, 50) . '...'; ?></td>
-                                        <td>Rp <?php echo number_format($row['price'], 0, ',', '.'); ?></td>
-                                        <td><?php echo $row['stock']; ?></td>
-                                        <td>
-                                            <?php if ($row['is_active']): ?>
-                                                <span class="badge bg-success">Aktif</span>
-                                            <?php else: ?>
-                                                <span class="badge bg-secondary">Nonaktif</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <a href="products.php?edit=<?php echo $row['id']; ?>" class="btn btn-sm btn-warning">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <a href="products.php?delete=<?php echo $row['id']; ?>" 
-                                               class="btn btn-sm btn-danger" 
-                                               onclick="return confirm('Yakin ingin menghapus produk ini?')">
+                        <?php if ($products->num_rows > 0): ?>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Urutan</th>
+                                    <th>Gambar</th>
+                                    <th>Nama</th>
+                                    <th>Ukuran</th>
+                                    <th>Harga</th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php while($product = $products->fetch_assoc()): ?>
+                                <tr>
+                                    <td><?php echo $product['order_num']; ?></td>
+                                    <td>
+                                        <?php if($product['image']): ?>
+                                        <img src="../../assets/img/products/<?php echo $product['image']; ?>" style="height: 40px; border-radius: 5px;">
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php echo htmlspecialchars($product['name']); ?>
+                                        <?php if($product['is_featured']): ?>
+                                        <span class="badge badge-warning">Unggulan</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($product['size']); ?></td>
+                                    <td>Rp <?php echo number_format($product['price'], 0, ',', '.'); ?></td>
+                                    <td>
+                                        <?php if($product['is_active']): ?>
+                                        <span class="badge badge-success">Aktif</span>
+                                        <?php else: ?>
+                                        <span class="badge badge-danger">Tidak Aktif</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="action-buttons">
+                                        <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus produk ini?')">
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="id" value="<?php echo $product['id']; ?>">
+                                            <button type="submit" class="btn btn-sm btn-danger btn-icon">
                                                 <i class="fas fa-trash"></i>
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    <?php endwhile; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <?php endwhile; ?>
+                            </tbody>
+                        </table>
+                        <?php else: ?>
+                        <p class="text-center text-muted">Belum ada produk</p>
+                        <?php endif; ?>
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

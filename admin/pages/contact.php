@@ -1,211 +1,154 @@
 <?php
 session_start();
-
-require_once __DIR__ . '/../includes/Admin.php';
-
-// Check login
-if (!Admin::isLoggedIn()) {
-    header("Location: ../login.php");
-    exit();
+if (!isset($_SESSION['admin_id'])) {
+    header('Location: ../login.php');
+    exit;
 }
+require_once '../../config/database.php';
 
-require_once __DIR__ . '/../includes/Contact.php';
-
-$contact = new Contact();
-$message = '';
-$message_type = '';
-
-// Handle Update
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $contact->id = $_POST['id'];
-    $contact->phone = $_POST['phone'];
-    $contact->email = $_POST['email'];
-    $contact->address = $_POST['address'];
-    $contact->whatsapp = $_POST['whatsapp'];
-    $contact->instagram = $_POST['instagram'];
-    $contact->facebook = $_POST['facebook'];
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $address = $conn->real_escape_string($_POST['address']);
+    $phone = $conn->real_escape_string($_POST['phone']);
+    $email = $conn->real_escape_string($_POST['email']);
+    $whatsapp = $conn->real_escape_string($_POST['whatsapp']);
+    $facebook = $conn->real_escape_string($_POST['facebook']);
+    $instagram = $conn->real_escape_string($_POST['instagram']);
     
-    if ($contact->update()) {
-        $message = 'Info kontak berhasil diupdate!';
-        $message_type = 'success';
+    // Check if contact exists
+    $check = $conn->query("SELECT id FROM contact LIMIT 1");
+    
+    if ($check->num_rows > 0) {
+        // Update existing
+        $sql = "UPDATE contact SET address=?, phone=?, email=?, whatsapp=?, facebook=?, instagram=? WHERE id=1";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ssssss", $address, $phone, $email, $whatsapp, $facebook, $instagram);
     } else {
-        $message = 'Gagal mengupdate info kontak!';
-        $message_type = 'danger';
+        // Insert new
+        $sql = "INSERT INTO contact (address, phone, email, whatsapp, facebook, instagram) VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ssssss", $address, $phone, $email, $whatsapp, $facebook, $instagram);
+    }
+    
+    if ($stmt->execute()) {
+        $success = "Informasi kontak berhasil disimpan!";
+    } else {
+        $error = "Gagal menyimpan informasi kontak!";
     }
 }
 
-// Get current contact
-$contact->read();
+// Get contact info
+$contact = $conn->query("SELECT * FROM contact LIMIT 1")->fetch_assoc();
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Info Kontak - CurupWater Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Kelola Kontak - Admin Curup Water</title>
+    <link rel="stylesheet" href="../../assets/css/admin.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .sidebar {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
-            padding: 12px 20px;
-            margin: 5px 0;
-            border-radius: 8px;
-            transition: all 0.3s;
-        }
-        .sidebar .nav-link:hover,
-        .sidebar .nav-link.active {
-            background: rgba(255,255,255,0.2);
-            color: white;
-        }
-    </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <nav class="col-md-3 col-lg-2 d-md-block sidebar p-3">
-                <div class="text-center mb-4">
-                    <i class="fas fa-water fa-3x mb-2"></i>
-                    <h4>CurupWater</h4>
-                    <small>Admin Panel</small>
-                </div>
-                <hr class="bg-light">
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="../index.php">
-                            <i class="fas fa-home me-2"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="products.php">
-                            <i class="fas fa-box me-2"></i>Produk
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="features.php">
-                            <i class="fas fa-star me-2"></i>Keunggulan
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="about.php">
-                            <i class="fas fa-info-circle me-2"></i>Tentang Kami
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="contact.php">
-                            <i class="fas fa-phone me-2"></i>Kontak
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="hero.php">
-                            <i class="fas fa-image me-2"></i>Hero Section
-                        </a>
-                    </li>
-                    <li class="nav-item mt-3">
-                        <a class="nav-link" href="../../index.php" target="_blank">
-                            <i class="fas fa-external-link-alt me-2"></i>Lihat Website
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="../logout.php" onclick="return confirm('Yakin ingin logout?')">
-                            <i class="fas fa-sign-out-alt me-2"></i>Logout
-                        </a>
-                    </li>
-                </ul>
+    <div class="admin-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="../../assets/img/logo.svg" alt="Curup Water" class="sidebar-logo">
+                <h2>CURUP WATER</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="../index.php" class="nav-item">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="hero.php" class="nav-item">
+                    <i class="fas fa-images"></i>
+                    <span>Hero Slides</span>
+                </a>
+                <a href="products.php" class="nav-item">
+                    <i class="fas fa-box"></i>
+                    <span>Produk</span>
+                </a>
+                <a href="about.php" class="nav-item">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Tentang Kami</span>
+                </a>
+                <a href="contact.php" class="nav-item active">
+                    <i class="fas fa-address-book"></i>
+                    <span>Kontak</span>
+                </a>
+                <a href="messages.php" class="nav-item">
+                    <i class="fas fa-envelope"></i>
+                    <span>Pesan</span>
+                </a>
             </nav>
+        </aside>
 
-            <!-- Main Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="fas fa-phone me-2"></i>Edit Info Kontak</h2>
-                    <a href="../index.php" class="btn btn-outline-secondary">
-                        <i class="fas fa-arrow-left me-2"></i>Kembali
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="page-title">
+                    <h1>Kelola Informasi Kontak</h1>
+                </div>
+                <div class="top-bar-actions">
+                    <a href="../../index.php" class="btn btn-sm" target="_blank">
+                        <i class="fas fa-eye"></i> Lihat Website
+                    </a>
+                    <a href="../logout.php" class="btn btn-sm btn-danger">
+                        <i class="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </div>
+            </header>
 
-                <?php if ($message): ?>
-                    <div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show" role="alert">
-                        <?php echo $message; ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
+            <!-- Content -->
+            <div class="content">
+                <?php if (isset($success)): ?>
+                    <div class="alert alert-success"><?php echo $success; ?></div>
+                <?php endif; ?>
+                <?php if (isset($error)): ?>
+                    <div class="alert alert-error"><?php echo $error; ?></div>
                 <?php endif; ?>
 
-                <!-- Form Edit -->
-                <div class="card shadow-sm">
-                    <div class="card-header bg-warning">
-                        <h5 class="mb-0">
-                            <i class="fas fa-edit me-2"></i>Edit Informasi Kontak
-                        </h5>
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Informasi Kontak</h2>
                     </div>
                     <div class="card-body">
                         <form method="POST">
-                            <input type="hidden" name="id" value="<?php echo $contact->id; ?>">
-                            
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="phone" class="form-label">
-                                        <i class="fas fa-phone me-2"></i>Nomor Telepon
-                                    </label>
-                                    <input type="text" class="form-control" id="phone" name="phone" 
-                                           value="<?php echo htmlspecialchars($contact->phone); ?>" placeholder="+62 812-3456-7890">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="email" class="form-label">
-                                        <i class="fas fa-envelope me-2"></i>Email
-                                    </label>
-                                    <input type="email" class="form-control" id="email" name="email" 
-                                           value="<?php echo htmlspecialchars($contact->email); ?>" placeholder="info@curupwater.com">
-                                </div>
+                            <div class="form-group">
+                                <label>Alamat</label>
+                                <textarea name="address" rows="3" required><?php echo $contact['address'] ?? ''; ?></textarea>
                             </div>
-                            
-                            <div class="mb-3">
-                                <label for="address" class="form-label">
-                                    <i class="fas fa-map-marker-alt me-2"></i>Alamat
-                                </label>
-                                <textarea class="form-control" id="address" name="address" rows="3"><?php echo htmlspecialchars($contact->address); ?></textarea>
+                            <div class="form-group">
+                                <label>Telepon</label>
+                                <input type="text" name="phone" value="<?php echo $contact['phone'] ?? ''; ?>" required>
                             </div>
-                            
-                            <div class="row">
-                                <div class="col-md-4 mb-3">
-                                    <label for="whatsapp" class="form-label">
-                                        <i class="fab fa-whatsapp me-2"></i>WhatsApp
-                                    </label>
-                                    <input type="text" class="form-control" id="whatsapp" name="whatsapp" 
-                                           value="<?php echo htmlspecialchars($contact->whatsapp); ?>" placeholder="+62 812-3456-7890">
-                                    <small class="text-muted">Format: +62 xxx-xxxx-xxxx</small>
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="instagram" class="form-label">
-                                        <i class="fab fa-instagram me-2"></i>Instagram
-                                    </label>
-                                    <input type="text" class="form-control" id="instagram" name="instagram" 
-                                           value="<?php echo htmlspecialchars($contact->instagram); ?>" placeholder="@curupwater">
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="facebook" class="form-label">
-                                        <i class="fab fa-facebook me-2"></i>Facebook
-                                    </label>
-                                    <input type="text" class="form-control" id="facebook" name="facebook" 
-                                           value="<?php echo htmlspecialchars($contact->facebook); ?>" placeholder="curupwater.official">
-                                </div>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" name="email" value="<?php echo $contact['email'] ?? ''; ?>" required>
                             </div>
-                            
-                            <button type="submit" class="btn btn-warning">
-                                <i class="fas fa-save me-2"></i>Update
+                            <div class="form-group">
+                                <label>WhatsApp <small>(dengan kode negara, contoh: 6281234567890)</small></label>
+                                <input type="text" name="whatsapp" value="<?php echo $contact['whatsapp'] ?? ''; ?>">
+                            </div>
+                            <div class="form-group">
+                                <label>Facebook URL</label>
+                                <input type="url" name="facebook" value="<?php echo $contact['facebook'] ?? ''; ?>" placeholder="https://facebook.com/curupwater">
+                            </div>
+                            <div class="form-group">
+                                <label>Instagram URL</label>
+                                <input type="url" name="instagram" value="<?php echo $contact['instagram'] ?? ''; ?>" placeholder="https://instagram.com/curupwater">
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Simpan Perubahan
                             </button>
                         </form>
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

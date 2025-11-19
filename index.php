@@ -1,401 +1,328 @@
 <?php
-require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/admin/includes/Product.php';
-require_once __DIR__ . '/admin/includes/Feature.php';
-require_once __DIR__ . '/admin/includes/About.php';
-require_once __DIR__ . '/admin/includes/Contact.php';
-require_once __DIR__ . '/admin/includes/Hero.php';
+require_once 'config/database.php';
 
-// Load data
-$product = new Product();
-$products_stmt = $product->readActive();
+// Fetch hero slides
+$hero_query = "SELECT * FROM hero_slides WHERE is_active = 1 ORDER BY order_num ASC";
+$hero_result = $conn->query($hero_query);
 
-$feature = new Feature();
-$features_stmt = $feature->readActive();
+// Fetch products
+$products_query = "SELECT * FROM products WHERE is_active = 1 ORDER BY order_num ASC";
+$products_result = $conn->query($products_query);
 
-$about = new About();
-$about->read();
+// Fetch about
+$about_query = "SELECT * FROM about LIMIT 1";
+$about_result = $conn->query($about_query);
+$about = $about_result->fetch_assoc();
 
-$contact = new Contact();
-$contact->read();
+// Fetch contact
+$contact_query = "SELECT * FROM contact LIMIT 1";
+$contact_result = $conn->query($contact_query);
+$contact = $contact_result->fetch_assoc();
 
-$hero = new Hero();
-$hero->read();
+// Fetch gallery photos
+$photos_query = "SELECT * FROM gallery_photos WHERE is_active = 1 ORDER BY order_num ASC LIMIT 8";
+$photos_result = $conn->query($photos_query);
+
+// Fetch gallery videos
+$videos_query = "SELECT * FROM gallery_videos WHERE is_active = 1 ORDER BY order_num ASC LIMIT 6";
+$videos_result = $conn->query($videos_query);
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CurupWater - Air Minum Berkualitas dari Curup</title>
-    <meta name="description" content="CurupWater menyediakan air minum dalam kemasan berkualitas tinggi dari mata air alami Curup">
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
+    <title>Curup Water - Air Mineral Berkualitas Tinggi</title>
+    <meta name="description" content="Curup Water menyediakan air mineral berkualitas tinggi dari sumber pegunungan alami">
+    <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style>
-        :root {
-            --primary-color: #667eea;
-            --secondary-color: #764ba2;
-        }
-        
-        /* Hero Section */
-        .hero-section {
-            min-height: 100vh;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%),
-                        <?php if ($hero->background_image): ?>
-                        url('img/uploads/<?php echo $hero->background_image; ?>');
-                        <?php else: ?>
-                        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800"><rect fill="%23667eea" width="1200" height="800"/></svg>');
-                        <?php endif; ?>
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            color: white;
-            display: flex;
-            align-items: center;
-            position: relative;
-        }
-        
-        .hero-content {
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-        
-        .hero-section h1 {
-            font-size: 3.5rem;
-            font-weight: 700;
-            margin-bottom: 1.5rem;
-        }
-        
-        .hero-section p {
-            font-size: 1.3rem;
-            margin-bottom: 2rem;
-        }
-        
-        .btn-hero {
-            background: white;
-            color: var(--primary-color);
-            padding: 15px 40px;
-            font-size: 1.2rem;
-            font-weight: 600;
-            border-radius: 50px;
-            border: none;
-            transition: all 0.3s;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        
-        .btn-hero:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-            background: #f8f9fa;
-        }
-        
-        /* Navbar */
-        .navbar {
-            background: rgba(255,255,255,0.95) !important;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .navbar-brand {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color) !important;
-        }
-        
-        .nav-link {
-            font-weight: 500;
-            color: #333 !important;
-            margin: 0 10px;
-            transition: color 0.3s;
-        }
-        
-        .nav-link:hover {
-            color: var(--primary-color) !important;
-        }
-        
-        /* Section Titles */
-        .section-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 3rem;
-            position: relative;
-            padding-bottom: 15px;
-        }
-        
-        .section-title::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80px;
-            height: 4px;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            border-radius: 2px;
-        }
-        
-        /* Products Section */
-        .product-card {
-            border: none;
-            border-radius: 15px;
-            overflow: hidden;
-            transition: all 0.3s;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            height: 100%;
-        }
-        
-        .product-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-        
-        .product-image {
-            height: 250px;
-            object-fit: cover;
-        }
-        
-        .product-price {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: var(--primary-color);
-        }
-        
-        /* Features Section */
-        .feature-box {
-            padding: 30px;
-            border-radius: 15px;
-            background: white;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            transition: all 0.3s;
-            height: 100%;
-        }
-        
-        .feature-box:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-        }
-        
-        .feature-icon {
-            font-size: 3rem;
-            color: var(--primary-color);
-            margin-bottom: 20px;
-        }
-        
-        .feature-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 15px;
-        }
-        
-        /* About Section */
-        .about-section {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-        }
-        
-        /* Footer */
-        .footer {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 50px 0 20px;
-        }
-        
-        .footer a {
-            color: white;
-            text-decoration: none;
-            transition: opacity 0.3s;
-        }
-        
-        .footer a:hover {
-            opacity: 0.8;
-        }
-        
-        .social-links a {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            line-height: 40px;
-            text-align: center;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.2);
-            margin: 0 5px;
-            transition: all 0.3s;
-        }
-        
-        .social-links a:hover {
-            background: white;
-            color: var(--primary-color);
-        }
-        
-        @media (max-width: 768px) {
-            .hero-section h1 {
-                font-size: 2rem;
-            }
-            .hero-section p {
-                font-size: 1rem;
-            }
-        }
-    </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light fixed-top">
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
         <div class="container">
-            <a class="navbar-brand" href="#">
-                <i class="fas fa-water me-2"></i>CurupWater
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#home">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#products">Produk</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#features">Keunggulan</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#about">Tentang</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#contact">Kontak</a>
-                    </li>
-                </ul>
+            <div class="nav-brand">
+                <img src="assets/img/logo.svg" alt="Curup Water" class="logo">
+                <span class="brand-name">CURUP WATER</span>
             </div>
+            <button class="nav-toggle" id="navToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="#home" class="nav-link active">BERANDA</a></li>
+                <li><a href="#products" class="nav-link">PRODUK</a></li>
+                <li><a href="#about" class="nav-link">TENTANG KAMI</a></li>
+                <li><a href="#gallery" class="nav-link">GALERI</a></li>
+                <li><a href="#contact" class="nav-link">KONTAK</a></li>
+                <li><a href="admin/" class="nav-link btn-admin">ADMIN</a></li>
+            </ul>
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <section id="home" class="hero-section">
+    <!-- Hero Section with Slider -->
+    <section id="home" class="hero">
+        <div class="hero-slider">
+            <?php if ($hero_result->num_rows > 0): ?>
+                <?php while($slide = $hero_result->fetch_assoc()): ?>
+                <div class="hero-slide">
+                    <div class="hero-bg" style="background-image: url('assets/img/hero/<?php echo $slide['image']; ?>')"></div>
+                    <div class="hero-overlay"></div>
+                    <div class="container">
+                        <div class="hero-content">
+                            <h1 class="hero-title animate-fade-up"><?php echo $slide['title']; ?></h1>
+                            <p class="hero-subtitle animate-fade-up"><?php echo $slide['subtitle']; ?></p>
+                            <?php if($slide['button_text']): ?>
+                            <a href="<?php echo $slide['button_link']; ?>" class="btn btn-primary animate-fade-up"><?php echo $slide['button_text']; ?></a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <div class="hero-slide">
+                    <div class="hero-bg" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)"></div>
+                    <div class="hero-overlay"></div>
+                    <div class="container">
+                        <div class="hero-content">
+                            <h1 class="hero-title">Curup Water - Air Mineral Berkualitas</h1>
+                            <p class="hero-subtitle">Sumber air terbaik dari pegunungan untuk kesehatan keluarga Anda</p>
+                            <a href="#products" class="btn btn-primary">Lihat Produk</a>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+        <div class="hero-controls">
+            <button class="hero-prev"><i class="fas fa-chevron-left"></i></button>
+            <div class="hero-dots"></div>
+            <button class="hero-next"><i class="fas fa-chevron-right"></i></button>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section id="products" class="products">
         <div class="container">
-            <div class="row">
-                <div class="col-lg-8 mx-auto text-center hero-content">
-                    <h1 class="animate__animated animate__fadeInDown">
-                        <?php echo htmlspecialchars($hero->title); ?>
-                    </h1>
-                    <p class="lead animate__animated animate__fadeInUp">
-                        <?php echo htmlspecialchars($hero->subtitle); ?>
-                    </p>
-                    <?php if ($hero->button_text && $hero->button_link): ?>
-                        <a href="<?php echo htmlspecialchars($hero->button_link); ?>" class="btn btn-hero">
-                            <?php echo htmlspecialchars($hero->button_text); ?>
-                        </a>
+            <div class="section-header">
+                <h2 class="section-title">Produk Kami</h2>
+                <p class="section-subtitle">Berbagai pilihan ukuran untuk kebutuhan Anda</p>
+            </div>
+            <div class="products-grid">
+                <?php if ($products_result->num_rows > 0): ?>
+                    <?php while($product = $products_result->fetch_assoc()): ?>
+                    <div class="product-card">
+                        <div class="product-badge">
+                            <?php if($product['is_featured']): ?>
+                            <span class="badge-featured">PILIHAN TERBAIK</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="product-image">
+                            <img src="assets/img/products/<?php echo $product['image']; ?>" alt="<?php echo $product['name']; ?>" onerror="this.src='assets/img/placeholder.jpg'">
+                        </div>
+                        <div class="product-info">
+                            <h3 class="product-name"><?php echo $product['name']; ?></h3>
+                            <p class="product-size"><?php echo $product['size']; ?></p>
+                            <p class="product-description"><?php echo $product['description']; ?></p>
+                            <div class="product-footer">
+                                <span class="product-price">Rp <?php echo number_format($product['price'], 0, ',', '.'); ?></span>
+                                <a href="#contact" class="btn btn-small">Pesan Sekarang</a>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <p class="text-center">Belum ada produk yang ditampilkan.</p>
+                <?php endif; ?>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="about">
+        <div class="container">
+            <div class="about-wrapper">
+                <div class="about-image">
+                    <?php if($about && $about['image']): ?>
+                    <img src="assets/img/<?php echo $about['image']; ?>" alt="Tentang Curup Water" onerror="this.src='assets/img/placeholder.jpg'">
+                    <?php else: ?>
+                    <div class="about-placeholder">
+                        <i class="fas fa-water"></i>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <div class="about-content">
+                    <h2 class="section-title"><?php echo $about ? $about['title'] : 'Tentang Curup Water'; ?></h2>
+                    <?php if($about): ?>
+                        <?php 
+                        $paragraphs = explode("\n\n", $about['content']);
+                        foreach($paragraphs as $paragraph): 
+                            if(trim($paragraph)):
+                        ?>
+                        <p><?php echo nl2br($paragraph); ?></p>
+                        <?php 
+                            endif;
+                        endforeach; 
+                        ?>
+                    <?php else: ?>
+                    <p>Curup Water adalah produsen air minum dalam kemasan yang berkomitmen menyediakan air mineral berkualitas tinggi untuk masyarakat.</p>
+                    <?php endif; ?>
+                    <div class="about-features">
+                        <div class="feature-item">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Sumber Air Alami</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Proses Higienis</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Standar Internasional</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Gallery Section -->
+    <section id="gallery" class="gallery">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Galeri Kami</h2>
+                <p class="section-subtitle">Dokumentasi kegiatan dan produk Curup Water</p>
+            </div>
+
+            <!-- Gallery Tabs -->
+            <div class="gallery-tabs">
+                <button class="gallery-tab active" data-tab="photos">
+                    <i class="fas fa-image"></i> Foto
+                </button>
+                <button class="gallery-tab" data-tab="videos">
+                    <i class="fas fa-video"></i> Video
+                </button>
+            </div>
+
+            <!-- Photos Tab -->
+            <div class="gallery-content active" id="photos">
+                <div class="gallery-grid">
+                    <?php if ($photos_result && $photos_result->num_rows > 0): ?>
+                        <?php while($photo = $photos_result->fetch_assoc()): ?>
+                        <div class="gallery-item">
+                            <img src="assets/img/gallery/<?php echo $photo['image']; ?>" alt="<?php echo htmlspecialchars($photo['title']); ?>" onerror="this.src='assets/img/placeholder.jpg'">
+                            <div class="gallery-overlay">
+                                <h3><?php echo htmlspecialchars($photo['title']); ?></h3>
+                                <?php if($photo['description']): ?>
+                                <p><?php echo htmlspecialchars($photo['description']); ?></p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <p class="text-center" style="grid-column: 1/-1;">Belum ada foto yang ditampilkan.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Videos Tab -->
+            <div class="gallery-content" id="videos">
+                <div class="gallery-grid video-grid">
+                    <?php if ($videos_result && $videos_result->num_rows > 0): ?>
+                        <?php while($video = $videos_result->fetch_assoc()): ?>
+                        <div class="gallery-video">
+                            <div class="video-wrapper">
+                                <?php 
+                                // Extract YouTube video ID
+                                preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i', $video['video_url'], $matches);
+                                $video_id = $matches[1] ?? '';
+                                ?>
+                                <?php if($video_id): ?>
+                                <iframe src="https://www.youtube.com/embed/<?php echo $video_id; ?>" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                <?php else: ?>
+                                <video controls>
+                                    <source src="<?php echo $video['video_url']; ?>" type="video/mp4">
+                                </video>
+                                <?php endif; ?>
+                            </div>
+                            <div class="video-info">
+                                <h3><?php echo htmlspecialchars($video['title']); ?></h3>
+                                <?php if($video['description']): ?>
+                                <p><?php echo htmlspecialchars($video['description']); ?></p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <p class="text-center" style="grid-column: 1/-1;">Belum ada video yang ditampilkan.</p>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Products Section -->
-    <section id="products" class="py-5">
-        <div class="container">
-            <h2 class="section-title text-center">Produk Kami</h2>
-            <div class="row g-4">
-                <?php while ($prod = $products_stmt->fetch()): ?>
-                <div class="col-md-6 col-lg-3">
-                    <div class="card product-card">
-                        <?php if ($prod['image']): ?>
-                            <img src="img/products/<?php echo $prod['image']; ?>" 
-                                 class="card-img-top product-image" 
-                                 alt="<?php echo htmlspecialchars($prod['name']); ?>">
-                        <?php else: ?>
-                            <div class="product-image bg-gradient d-flex align-items-center justify-content-center">
-                                <i class="fas fa-bottle-water fa-5x text-white"></i>
-                            </div>
-                        <?php endif; ?>
-                        <div class="card-body text-center">
-                            <h5 class="card-title"><?php echo htmlspecialchars($prod['name']); ?></h5>
-                            <p class="card-text text-muted"><?php echo htmlspecialchars($prod['description']); ?></p>
-                            <p class="product-price mb-3">Rp <?php echo number_format($prod['price'], 0, ',', '.'); ?></p>
-                            <a href="#contact" class="btn btn-primary">
-                                <i class="fas fa-shopping-cart me-2"></i>Pesan Sekarang
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                <?php endwhile; ?>
-            </div>
-        </div>
-    </section>
-
-    <!-- Features Section -->
-    <section id="features" class="py-5 bg-light">
-        <div class="container">
-            <h2 class="section-title text-center">Keunggulan Kami</h2>
-            <div class="row g-4">
-                <?php while ($feat = $features_stmt->fetch()): ?>
-                <div class="col-md-6 col-lg-3">
-                    <div class="feature-box text-center">
-                        <i class="fas <?php echo $feat['icon']; ?> feature-icon"></i>
-                        <h4 class="feature-title"><?php echo htmlspecialchars($feat['title']); ?></h4>
-                        <p class="text-muted"><?php echo htmlspecialchars($feat['description']); ?></p>
-                    </div>
-                </div>
-                <?php endwhile; ?>
-            </div>
-        </div>
-    </section>
-
-    <!-- About Section -->
-    <section id="about" class="py-5 about-section">
-        <div class="container">
-            <h2 class="section-title text-center"><?php echo htmlspecialchars($about->title); ?></h2>
-            <div class="row justify-content-center">
-                <div class="col-lg-8">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body p-5">
-                            <p class="lead text-center"><?php echo nl2br(htmlspecialchars($about->content)); ?></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
     <!-- Contact Section -->
-    <section id="contact" class="py-5">
+    <section id="contact" class="contact">
         <div class="container">
-            <h2 class="section-title text-center">Hubungi Kami</h2>
-            <div class="row g-4">
-                <div class="col-md-4">
-                    <div class="card h-100 text-center border-0 shadow-sm">
-                        <div class="card-body">
-                            <i class="fas fa-phone fa-3x text-primary mb-3"></i>
-                            <h5>Telepon</h5>
-                            <p class="text-muted"><?php echo htmlspecialchars($contact->phone); ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card h-100 text-center border-0 shadow-sm">
-                        <div class="card-body">
-                            <i class="fas fa-envelope fa-3x text-primary mb-3"></i>
-                            <h5>Email</h5>
-                            <p class="text-muted"><?php echo htmlspecialchars($contact->email); ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card h-100 text-center border-0 shadow-sm">
-                        <div class="card-body">
-                            <i class="fas fa-map-marker-alt fa-3x text-primary mb-3"></i>
-                            <h5>Alamat</h5>
-                            <p class="text-muted"><?php echo htmlspecialchars($contact->address); ?></p>
-                        </div>
-                    </div>
-                </div>
+            <div class="section-header">
+                <h2 class="section-title">Hubungi Kami</h2>
+                <p class="section-subtitle">Kami siap melayani kebutuhan air mineral berkualitas Anda</p>
             </div>
-            <div class="row mt-4">
-                <div class="col-12 text-center">
-                    <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $contact->whatsapp); ?>" 
-                       class="btn btn-success btn-lg me-2" target="_blank">
-                        <i class="fab fa-whatsapp me-2"></i>WhatsApp
-                    </a>
+            <div class="contact-wrapper">
+                <div class="contact-info">
+                    <div class="info-card">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <h3>Alamat</h3>
+                        <p><?php echo $contact ? $contact['address'] : 'Jl. Raya Curup, Bengkulu'; ?></p>
+                    </div>
+                    <div class="info-card">
+                        <i class="fas fa-phone"></i>
+                        <h3>Telepon</h3>
+                        <p><?php echo $contact ? $contact['phone'] : '-'; ?></p>
+                    </div>
+                    <div class="info-card">
+                        <i class="fas fa-envelope"></i>
+                        <h3>Email</h3>
+                        <p><?php echo $contact ? $contact['email'] : '-'; ?></p>
+                    </div>
+                    <?php if($contact && $contact['whatsapp']): ?>
+                    <div class="info-card">
+                        <i class="fab fa-whatsapp"></i>
+                        <h3>WhatsApp</h3>
+                        <p><?php echo $contact['whatsapp']; ?></p>
+                    </div>
+                    <?php endif; ?>
+                    <?php if($contact && ($contact['facebook'] || $contact['instagram'])): ?>
+                    <div class="social-links">
+                        <?php if($contact['facebook']): ?>
+                        <a href="<?php echo $contact['facebook']; ?>" target="_blank"><i class="fab fa-facebook"></i></a>
+                        <?php endif; ?>
+                        <?php if($contact['instagram']): ?>
+                        <a href="<?php echo $contact['instagram']; ?>" target="_blank"><i class="fab fa-instagram"></i></a>
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <div class="contact-form-wrapper">
+                    <form class="contact-form" id="contactForm">
+                        <div class="form-group">
+                            <input type="text" name="name" placeholder="Nama Lengkap" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="email" name="email" placeholder="Email" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="tel" name="phone" placeholder="Nomor Telepon">
+                        </div>
+                        <div class="form-group">
+                            <input type="text" name="subject" placeholder="Subjek" required>
+                        </div>
+                        <div class="form-group">
+                            <textarea name="message" rows="5" placeholder="Pesan Anda" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Kirim Pesan</button>
+                    </form>
+                    <div id="formMessage"></div>
                 </div>
             </div>
         </div>
@@ -404,68 +331,39 @@ $hero->read();
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
-            <div class="row">
-                <div class="col-md-4 mb-4">
-                    <h5><i class="fas fa-water me-2"></i>CurupWater</h5>
-                    <p>Air minum berkualitas dari mata air alami Curup untuk kesehatan keluarga Indonesia.</p>
+            <div class="footer-content">
+                <div class="footer-section">
+                    <img src="assets/img/logo.svg" alt="Curup Water" class="footer-logo">
+                    <h3>CURUP WATER</h3>
+                    <p>Air mineral berkualitas tinggi dari sumber pegunungan alami</p>
                 </div>
-                <div class="col-md-4 mb-4">
-                    <h5>Kontak</h5>
-                    <p><i class="fas fa-phone me-2"></i><?php echo htmlspecialchars($contact->phone); ?></p>
-                    <p><i class="fas fa-envelope me-2"></i><?php echo htmlspecialchars($contact->email); ?></p>
+                <div class="footer-section">
+                    <h4>Menu</h4>
+                    <ul>
+                        <li><a href="#home">Beranda</a></li>
+                        <li><a href="#products">Produk</a></li>
+                        <li><a href="#about">Tentang Kami</a></li>
+                        <li><a href="#gallery">Galeri</a></li>
+                        <li><a href="#contact">Kontak</a></li>
+                    </ul>
                 </div>
-                <div class="col-md-4 mb-4">
-                    <h5>Follow Kami</h5>
-                    <div class="social-links">
-                        <a href="https://instagram.com/<?php echo htmlspecialchars($contact->instagram); ?>" target="_blank">
-                            <i class="fab fa-instagram"></i>
-                        </a>
-                        <a href="https://facebook.com/<?php echo htmlspecialchars($contact->facebook); ?>" target="_blank">
-                            <i class="fab fa-facebook"></i>
-                        </a>
-                        <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $contact->whatsapp); ?>" target="_blank">
-                            <i class="fab fa-whatsapp"></i>
-                        </a>
-                    </div>
+                <div class="footer-section">
+                    <h4>Kontak</h4>
+                    <p><?php echo $contact ? $contact['phone'] : '-'; ?></p>
+                    <p><?php echo $contact ? $contact['email'] : '-'; ?></p>
                 </div>
             </div>
-            <hr class="bg-light">
-            <div class="row">
-                <div class="col-12 text-center">
-                    <p class="mb-0">&copy; <?php echo date('Y'); ?> CurupWater. All Rights Reserved.</p>
-                    <p class="mt-2 mb-0"><a href="admin/login.php" class="text-white"><i class="fas fa-lock me-1"></i>Admin Login</a></p>
-                </div>
+            <div class="footer-bottom">
+                <p>&copy; <?php echo date('Y'); ?> Curup Water. All Rights Reserved.</p>
             </div>
         </div>
     </footer>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Smooth Scroll -->
-    <script>
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
+    <!-- Scroll to Top Button -->
+    <button id="scrollTop" class="scroll-top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
 
-        // Navbar background on scroll
-        window.addEventListener('scroll', function() {
-            const navbar = document.querySelector('.navbar');
-            if (window.scrollY > 50) {
-                navbar.style.background = 'rgba(255,255,255,0.98)';
-            } else {
-                navbar.style.background = 'rgba(255,255,255,0.95)';
-            }
-        });
-    </script>
+    <script src="assets/js/main.js"></script>
 </body>
 </html>

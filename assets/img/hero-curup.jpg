@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <!-- Sky gradient -->
+  <defs>
+    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#B0E0E6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="mountainGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2C5F2D;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1C3F1D;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="fieldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#90EE90;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3CB371;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Sky with clouds -->
+  <rect width="1920" height="1080" fill="url(#skyGradient)"/>
+  
+  <!-- Clouds -->
+  <ellipse cx="300" cy="150" rx="100" ry="40" fill="white" opacity="0.7"/>
+  <ellipse cx="350" cy="140" rx="80" ry="35" fill="white" opacity="0.7"/>
+  <ellipse cx="250" cy="140" rx="70" ry="30" fill="white" opacity="0.7"/>
+  
+  <ellipse cx="1500" cy="200" rx="120" ry="45" fill="white" opacity="0.6"/>
+  <ellipse cx="1560" cy="190" rx="90" ry="38" fill="white" opacity="0.6"/>
+  <ellipse cx="1440" cy="190" rx="85" ry="35" fill="white" opacity="0.6"/>
+  
+  <ellipse cx="800" cy="120" rx="110" ry="42" fill="white" opacity="0.65"/>
+  <ellipse cx="850" cy="110" rx="85" ry="36" fill="white" opacity="0.65"/>
+  
+  <!-- Mountains in background -->
+  <path d="M0 400 L400 150 L800 300 L1200 180 L1600 280 L1920 220 L1920 600 L0 600 Z" 
+        fill="url(#mountainGradient)" opacity="0.7"/>
+  
+  <!-- Mountains closer -->
+  <path d="M0 500 L300 250 L600 380 L900 200 L1200 320 L1500 240 L1920 350 L1920 600 L0 600 Z" 
+        fill="url(#mountainGradient)" opacity="0.85"/>
+  
+  <!-- Palm trees silhouettes -->
+  <g opacity="0.6">
+    <!-- Palm tree 1 -->
+    <rect x="150" y="500" width="10" height="150" fill="#654321"/>
+    <path d="M155 480 Q130 460 120 490 Q140 485 155 500" fill="#2C5F2D"/>
+    <path d="M155 480 Q180 460 190 490 Q170 485 155 500" fill="#2C5F2D"/>
+    <path d="M155 485 Q145 465 135 495 Q148 488 155 500" fill="#3CB371"/>
+    <path d="M155 485 Q165 465 175 495 Q162 488 155 500" fill="#3CB371"/>
+    
+    <!-- Palm tree 2 -->
+    <rect x="1700" y="480" width="12" height="180" fill="#654321"/>
+    <path d="M1706 455 Q1675 430 1660 465 Q1685 458 1706 475" fill="#2C5F2D"/>
+    <path d="M1706 455 Q1737 430 1752 465 Q1727 458 1706 475" fill="#2C5F2D"/>
+    <path d="M1706 462 Q1690 440 1675 475 Q1693 465 1706 478" fill="#3CB371"/>
+    <path d="M1706 462 Q1722 440 1737 475 Q1719 465 1706 478" fill="#3CB371"/>
+    
+    <!-- Palm tree 3 -->
+    <rect x="1450" y="520" width="10" height="140" fill="#654321"/>
+    <path d="M1455 500 Q1430 482 1420 508 Q1440 502 1455 515" fill="#2C5F2D"/>
+    <path d="M1455 500 Q1480 482 1490 508 Q1470 502 1455 515" fill="#2C5F2D"/>
+  </g>
+  
+  <!-- Rice field -->
+  <rect x="0" y="600" width="1920" height="480" fill="url(#fieldGradient)"/>
+  
+  <!-- Rice field rows (perspective) -->
+  <g opacity="0.4">
+    <rect x="0" y="620" width="1920" height="8" fill="#228B22"/>
+    <rect x="0" y="645" width="1920" height="10" fill="#228B22"/>
+    <rect x="0" y="675" width="1920" height="12" fill="#228B22"/>
+    <rect x="0" y="710" width="1920" height="14" fill="#228B22"/>
+    <rect x="0" y="750" width="1920" height="16" fill="#228B22"/>
+    <rect x="0" y="795" width="1920" height="18" fill="#228B22"/>
+    <rect x="0" y="845" width="1920" height="20" fill="#228B22"/>
+    <rect x="0" y="900" width="1920" height="22" fill="#228B22"/>
+    <rect x="0" y="960" width="1920" height="24" fill="#228B22"/>
+    <rect x="0" y="1025" width="1920" height="26" fill="#228B22"/>
+  </g>
+  
+  <!-- Water path in field -->
+  <path d="M960 650 Q955 700 950 750 Q948 800 945 850 Q943 900 940 950 Q938 1000 935 1080" 
+        stroke="#4682B4" stroke-width="15" fill="none" opacity="0.5"/>
+  
+  <!-- More palm trees in field -->
+  <g opacity="0.8">
+    <rect x="400" y="640" width="8" height="100" fill="#654321"/>
+    <path d="M404 625 Q385 610 378 635 Q393 630 404 640" fill="#228B22"/>
+    <path d="M404 625 Q423 610 430 635 Q415 630 404 640" fill="#228B22"/>
+    
+    <rect x="1200" y="670" width="7" height="90" fill="#654321"/>
+    <path d="M1203.5 657 Q1188 645 1182 667 Q1195 662 1203.5 670" fill="#228B22"/>
+    <path d="M1203.5 657 Q1219 645 1225 667 Q1212 662 1203.5 670" fill="#228B22"/>
+    
+    <rect x="750" y="710" width="6" height="75" fill="#654321"/>
+    <path d="M753 698 Q741 688 736 705 Q747 701 753 708" fill="#228B22"/>
+    <path d="M753 698 Q765 688 770 705 Q759 701 753 708" fill="#228B22"/>
+  </g>
+  
+  <!-- Foreground darker field -->
+  <ellipse cx="960" cy="1200" rx="1000" ry="200" fill="#2E8B57" opacity="0.3"/>
+</svg>

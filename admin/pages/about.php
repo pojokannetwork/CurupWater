@@ -1,170 +1,158 @@
 <?php
 session_start();
-
-require_once __DIR__ . '/../includes/Admin.php';
-
-// Check login
-if (!Admin::isLoggedIn()) {
-    header("Location: ../login.php");
-    exit();
+if (!isset($_SESSION['admin_id'])) {
+    header('Location: ../login.php');
+    exit;
 }
+require_once '../../config/database.php';
 
-require_once __DIR__ . '/../includes/About.php';
-
-$about = new About();
-$message = '';
-$message_type = '';
-
-// Handle Update
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $about->id = $_POST['id'];
-    $about->title = $_POST['title'];
-    $about->content = $_POST['content'];
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $title = $conn->real_escape_string($_POST['title']);
+    $content = $conn->real_escape_string($_POST['content']);
     
-    if ($about->update()) {
-        $message = 'Tentang Kami berhasil diupdate!';
-        $message_type = 'success';
+    // Handle image upload
+    $image = '';
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
+        $image = time() . '_' . basename($_FILES['image']['name']);
+        move_uploaded_file($_FILES['image']['tmp_name'], '../../assets/img/' . $image);
+    }
+    
+    // Check if about exists
+    $check = $conn->query("SELECT id FROM about LIMIT 1");
+    
+    if ($check->num_rows > 0) {
+        // Update existing
+        if ($image) {
+            $sql = "UPDATE about SET title=?, content=?, image=? WHERE id=1";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("sss", $title, $content, $image);
+        } else {
+            $sql = "UPDATE about SET title=?, content=? WHERE id=1";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("ss", $title, $content);
+        }
     } else {
-        $message = 'Gagal mengupdate Tentang Kami!';
-        $message_type = 'danger';
+        // Insert new
+        $sql = "INSERT INTO about (title, content, image) VALUES (?, ?, ?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("sss", $title, $content, $image);
+    }
+    
+    if ($stmt->execute()) {
+        $success = "Informasi berhasil disimpan!";
+    } else {
+        $error = "Gagal menyimpan informasi!";
     }
 }
 
-// Get current about
-$about->read();
+// Get about info
+$about = $conn->query("SELECT * FROM about LIMIT 1")->fetch_assoc();
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Tentang Kami - CurupWater Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Kelola Tentang Kami - Admin Curup Water</title>
+    <link rel="stylesheet" href="../../assets/css/admin.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .sidebar {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
-            padding: 12px 20px;
-            margin: 5px 0;
-            border-radius: 8px;
-            transition: all 0.3s;
-        }
-        .sidebar .nav-link:hover,
-        .sidebar .nav-link.active {
-            background: rgba(255,255,255,0.2);
-            color: white;
-        }
-    </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <nav class="col-md-3 col-lg-2 d-md-block sidebar p-3">
-                <div class="text-center mb-4">
-                    <i class="fas fa-water fa-3x mb-2"></i>
-                    <h4>CurupWater</h4>
-                    <small>Admin Panel</small>
-                </div>
-                <hr class="bg-light">
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="../index.php">
-                            <i class="fas fa-home me-2"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="products.php">
-                            <i class="fas fa-box me-2"></i>Produk
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="features.php">
-                            <i class="fas fa-star me-2"></i>Keunggulan
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="about.php">
-                            <i class="fas fa-info-circle me-2"></i>Tentang Kami
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="contact.php">
-                            <i class="fas fa-phone me-2"></i>Kontak
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="hero.php">
-                            <i class="fas fa-image me-2"></i>Hero Section
-                        </a>
-                    </li>
-                    <li class="nav-item mt-3">
-                        <a class="nav-link" href="../../index.php" target="_blank">
-                            <i class="fas fa-external-link-alt me-2"></i>Lihat Website
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="../logout.php" onclick="return confirm('Yakin ingin logout?')">
-                            <i class="fas fa-sign-out-alt me-2"></i>Logout
-                        </a>
-                    </li>
-                </ul>
+    <div class="admin-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="../../assets/img/logo.svg" alt="Curup Water" class="sidebar-logo">
+                <h2>CURUP WATER</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="../index.php" class="nav-item">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="hero.php" class="nav-item">
+                    <i class="fas fa-images"></i>
+                    <span>Hero Slides</span>
+                </a>
+                <a href="products.php" class="nav-item">
+                    <i class="fas fa-box"></i>
+                    <span>Produk</span>
+                </a>
+                <a href="about.php" class="nav-item active">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Tentang Kami</span>
+                </a>
+                <a href="contact.php" class="nav-item">
+                    <i class="fas fa-address-book"></i>
+                    <span>Kontak</span>
+                </a>
+                <a href="messages.php" class="nav-item">
+                    <i class="fas fa-envelope"></i>
+                    <span>Pesan</span>
+                </a>
             </nav>
+        </aside>
 
-            <!-- Main Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="fas fa-info-circle me-2"></i>Edit Tentang Kami</h2>
-                    <a href="../index.php" class="btn btn-outline-secondary">
-                        <i class="fas fa-arrow-left me-2"></i>Kembali
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="page-title">
+                    <h1>Kelola Tentang Kami</h1>
+                </div>
+                <div class="top-bar-actions">
+                    <a href="../../index.php#about" class="btn btn-sm" target="_blank">
+                        <i class="fas fa-eye"></i> Lihat Website
+                    </a>
+                    <a href="../logout.php" class="btn btn-sm btn-danger">
+                        <i class="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </div>
+            </header>
 
-                <?php if ($message): ?>
-                    <div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show" role="alert">
-                        <?php echo $message; ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
+            <!-- Content -->
+            <div class="content">
+                <?php if (isset($success)): ?>
+                    <div class="alert alert-success"><?php echo $success; ?></div>
+                <?php endif; ?>
+                <?php if (isset($error)): ?>
+                    <div class="alert alert-error"><?php echo $error; ?></div>
                 <?php endif; ?>
 
-                <!-- Form Edit -->
-                <div class="card shadow-sm">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0">
-                            <i class="fas fa-edit me-2"></i>Edit Konten Tentang Kami
-                        </h5>
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Informasi Tentang Perusahaan</h2>
                     </div>
                     <div class="card-body">
-                        <form method="POST">
-                            <input type="hidden" name="id" value="<?php echo $about->id; ?>">
-                            
-                            <div class="mb-3">
-                                <label for="title" class="form-label">Judul *</label>
-                                <input type="text" class="form-control" id="title" name="title" 
-                                       value="<?php echo htmlspecialchars($about->title); ?>" required>
+                        <form method="POST" enctype="multipart/form-data">
+                            <div class="form-group">
+                                <label>Judul</label>
+                                <input type="text" name="title" value="<?php echo $about['title'] ?? 'Tentang Curup Water'; ?>" required>
                             </div>
-                            
-                            <div class="mb-3">
-                                <label for="content" class="form-label">Konten *</label>
-                                <textarea class="form-control" id="content" name="content" rows="10" required><?php echo htmlspecialchars($about->content); ?></textarea>
-                                <small class="text-muted">Jelaskan tentang perusahaan, visi, misi, dan nilai-nilai perusahaan</small>
+                            <div class="form-group">
+                                <label>Konten</label>
+                                <textarea name="content" rows="10" required><?php echo $about['content'] ?? ''; ?></textarea>
+                                <small>Gunakan dua baris kosong untuk memisahkan paragraf</small>
                             </div>
-                            
-                            <button type="submit" class="btn btn-info text-white">
-                                <i class="fas fa-save me-2"></i>Update
+                            <div class="form-group">
+                                <label>Gambar</label>
+                                <input type="file" name="image" accept="image/*">
+                                <?php if (isset($about['image']) && $about['image']): ?>
+                                <div class="image-preview">
+                                    <img src="../../assets/img/<?php echo $about['image']; ?>" alt="Current image">
+                                    <small>Gambar saat ini</small>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Simpan Perubahan
                             </button>
                         </form>
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
