@@ -3,7 +3,12 @@ session_start();
 
 // Check if already logged in
 if (isset($_SESSION['admin_id'])) {
-    header('Location: index.php');
+    // Redirect based on role
+    if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'super_admin') {
+        header('Location: pages/app-management.php');
+    } else {
+        header('Location: index.php');
+    }
     exit;
 }
 
@@ -26,7 +31,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['admin_username'] = $admin['username'];
             $_SESSION['admin_role'] = $admin['role'];
             $_SESSION['admin_logged_in'] = true;
-            header('Location: index.php');
+            
+            // Redirect based on role
+            if ($admin['role'] === 'super_admin') {
+                header('Location: pages/app-management.php');
+            } else {
+                header('Location: index.php');
+            }
             exit;
         } else {
             $error = "Password salah!";
@@ -53,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h1>CURUP WATER</h1>
                 <p>Admin Panel Login</p>
                 <small style="color: #666; display: block; margin-top: 0.5rem;">
-                    <i class="fas fa-shield-alt"></i> Super Admin atau Admin Website
+                    <i class="fas fa-info-circle"></i> Login otomatis ke dashboard sesuai role Anda
                 </small>
             </div>
             <?php if (isset($error)): ?>
