@@ -24,6 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (password_verify($password, $admin['password'])) {
             $_SESSION['admin_id'] = $admin['id'];
             $_SESSION['admin_username'] = $admin['username'];
+            $_SESSION['admin_role'] = $admin['role'];
+            $_SESSION['admin_logged_in'] = true;
             header('Location: index.php');
             exit;
         } else {
@@ -49,7 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="login-header">
                 <img src="../assets/img/logo.svg" alt="Curup Water" class="login-logo">
                 <h1>CURUP WATER</h1>
-                <p>Admin Panel</p>
+                <p>Admin Panel Login</p>
+                <small style="color: #666; display: block; margin-top: 0.5rem;">
+                    <i class="fas fa-shield-alt"></i> Super Admin atau Admin Website
+                </small>
             </div>
             <?php if (isset($error)): ?>
                 <div class="alert alert-error"><?php echo $error; ?></div>

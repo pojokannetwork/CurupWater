@@ -31,12 +31,20 @@ $recent_messages = $conn->query("SELECT * FROM messages ORDER BY created_at DESC
             <div class="sidebar-header">
                 <img src="../assets/img/logo.svg" alt="Curup Water" class="sidebar-logo">
                 <h2>CURUP WATER</h2>
+                <?php if (isset($_SESSION['admin_role'])): ?>
+                    <?php if ($_SESSION['admin_role'] === 'super_admin'): ?>
+                        <span class="role-badge super-admin">SUPER ADMIN</span>
+                    <?php else: ?>
+                        <span class="role-badge admin">ADMIN</span>
+                    <?php endif; ?>
+                <?php endif; ?>
             </div>
             <nav class="sidebar-nav">
                 <a href="index.php" class="nav-item active">
                     <i class="fas fa-home"></i>
                     <span>Dashboard</span>
                 </a>
+                <div class="nav-divider">MANAGEMEN WEBSITE</div>
                 <a href="pages/hero.php" class="nav-item">
                     <i class="fas fa-images"></i>
                     <span>Hero Slides</span>
@@ -49,6 +57,14 @@ $recent_messages = $conn->query("SELECT * FROM messages ORDER BY created_at DESC
                     <i class="fas fa-info-circle"></i>
                     <span>Tentang Kami</span>
                 </a>
+                <a href="pages/gallery-photos.php" class="nav-item">
+                    <i class="fas fa-camera"></i>
+                    <span>Galeri Foto</span>
+                </a>
+                <a href="pages/gallery-videos.php" class="nav-item">
+                    <i class="fas fa-video"></i>
+                    <span>Galeri Video</span>
+                </a>
                 <a href="pages/contact.php" class="nav-item">
                     <i class="fas fa-address-book"></i>
                     <span>Kontak</span>
@@ -60,6 +76,13 @@ $recent_messages = $conn->query("SELECT * FROM messages ORDER BY created_at DESC
                     <span class="badge"><?php echo $stats['messages']; ?></span>
                     <?php endif; ?>
                 </a>
+                <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'super_admin'): ?>
+                <div class="nav-divider">MANAGEMEN APLIKASI</div>
+                <a href="pages/app-management.php" class="nav-item">
+                    <i class="fas fa-cogs"></i>
+                    <span>Kelola Admin</span>
+                </a>
+                <?php endif; ?>
             </nav>
         </aside>
 
@@ -69,6 +92,13 @@ $recent_messages = $conn->query("SELECT * FROM messages ORDER BY created_at DESC
             <header class="top-bar">
                 <div class="page-title">
                     <h1>Dashboard</h1>
+                    <p>Selamat datang, <strong><?= $_SESSION['admin_username'] ?></strong>! 
+                    <?php if ($_SESSION['admin_role'] === 'super_admin'): ?>
+                        <span class="role-badge-small super-admin"><i class="fas fa-crown"></i> Super Admin</span>
+                    <?php else: ?>
+                        <span class="role-badge-small admin"><i class="fas fa-user"></i> Admin</span>
+                    <?php endif; ?>
+                    </p>
                 </div>
                 <div class="top-bar-actions">
                     <a href="../index.php" class="btn btn-sm" target="_blank">
