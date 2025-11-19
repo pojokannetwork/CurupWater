@@ -80,6 +80,10 @@ $recent_messages = $conn->query("SELECT * FROM messages ORDER BY created_at DESC
                 </a>
                 <?php if (isset($_SESSION['admin_role']) && ($_SESSION['admin_role'] === 'super_admin' || $_SESSION['admin_role'] === 'app_admin')): ?>
                 <div class="nav-divider">MANAGEMEN APLIKASI</div>
+                <a href="pages/app-dashboard.php" class="nav-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard Aplikasi</span>
+                </a>
                 <a href="pages/app-management.php" class="nav-item">
                     <i class="fas fa-cogs"></i>
                     <span>Kelola Admin</span>

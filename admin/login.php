@@ -6,9 +6,9 @@ if (isset($_SESSION['admin_id'])) {
     // Redirect based on role
     if (isset($_SESSION['admin_role'])) {
         if ($_SESSION['admin_role'] === 'super_admin') {
-            header('Location: pages/app-management.php');
+            header('Location: pages/app-dashboard.php');
         } elseif ($_SESSION['admin_role'] === 'app_admin') {
-            header('Location: pages/app-management.php');
+            header('Location: pages/app-dashboard.php');
         } else {
             header('Location: index.php');
         }
@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Redirect based on role
             if ($admin['role'] === 'super_admin' || $admin['role'] === 'app_admin') {
-                header('Location: pages/app-management.php');
+                header('Location: pages/app-dashboard.php');
             } else {
                 header('Location: index.php');
             }

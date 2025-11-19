@@ -140,6 +140,7 @@ $stats['total_videos'] = $conn->query("SELECT COUNT(*) as count FROM gallery_vid
                 <a href="contact.php"><i class="fas fa-phone"></i> Kontak</a>
                 <a href="messages.php"><i class="fas fa-envelope"></i> Pesan</a>
                 <div class="nav-divider">MANAGEMEN APLIKASI</div>
+                <a href="app-dashboard.php"><i class="fas fa-chart-line"></i> Dashboard Aplikasi</a>
                 <a href="app-management.php" class="active"><i class="fas fa-cogs"></i> Kelola Admin</a>
                 <a href="../logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </nav>
