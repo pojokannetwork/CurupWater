@@ -7,58 +7,75 @@ if (!isset($_SESSION['admin_logged_in']) || ($_SESSION['admin_role'] !== 'super_
 
 require_once '../../config/database.php';
 
-// Get comprehensive statistics
+// Get sales statistics
 $stats = [];
 
-// Admin statistics
-$stats['total_admins'] = $conn->query("SELECT COUNT(*) as count FROM admin")->fetch_assoc()['count'];
-$stats['super_admins'] = $conn->query("SELECT COUNT(*) as count FROM admin WHERE role='super_admin'")->fetch_assoc()['count'];
-$stats['app_admins'] = $conn->query("SELECT COUNT(*) as count FROM admin WHERE role='app_admin'")->fetch_assoc()['count'];
-$stats['website_admins'] = $conn->query("SELECT COUNT(*) as count FROM admin WHERE role='admin'")->fetch_assoc()['count'];
+// Sales & Revenue
+$today_sales = $conn->query("SELECT COALESCE(SUM(total_price), 0) as total FROM sales WHERE DATE(sale_date) = CURDATE()")->fetch_assoc()['total'];
+$month_sales = $conn->query("SELECT COALESCE(SUM(total_price), 0) as total FROM sales WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE())")->fetch_assoc()['total'];
+$year_sales = $conn->query("SELECT COALESCE(SUM(total_price), 0) as total FROM sales WHERE YEAR(sale_date) = YEAR(CURDATE())")->fetch_assoc()['total'];
+$total_sales = $conn->query("SELECT COALESCE(SUM(total_price), 0) as total FROM sales")->fetch_assoc()['total'];
 
-// Content statistics
-$stats['total_products'] = $conn->query("SELECT COUNT(*) as count FROM products")->fetch_assoc()['count'];
-$stats['active_products'] = $conn->query("SELECT COUNT(*) as count FROM products WHERE is_active=1")->fetch_assoc()['count'];
-$stats['total_hero_slides'] = $conn->query("SELECT COUNT(*) as count FROM hero_slides")->fetch_assoc()['count'];
-$stats['active_hero_slides'] = $conn->query("SELECT COUNT(*) as count FROM hero_slides WHERE is_active=1")->fetch_assoc()['count'];
+// Transaction count
+$today_transactions = $conn->query("SELECT COUNT(*) as count FROM sales WHERE DATE(sale_date) = CURDATE()")->fetch_assoc()['count'];
+$month_transactions = $conn->query("SELECT COUNT(*) as count FROM sales WHERE MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE())")->fetch_assoc()['count'];
+$total_transactions = $conn->query("SELECT COUNT(*) as count FROM sales")->fetch_assoc()['count'];
 
-// Gallery statistics
-$stats['total_photos'] = $conn->query("SELECT COUNT(*) as count FROM gallery_photos")->fetch_assoc()['count'];
-$stats['active_photos'] = $conn->query("SELECT COUNT(*) as count FROM gallery_photos WHERE is_active=1")->fetch_assoc()['count'];
-$stats['total_videos'] = $conn->query("SELECT COUNT(*) as count FROM gallery_videos")->fetch_assoc()['count'];
-$stats['active_videos'] = $conn->query("SELECT COUNT(*) as count FROM gallery_videos WHERE is_active=1")->fetch_assoc()['count'];
+// Product & Stock
+$total_products = $conn->query("SELECT COUNT(*) as count FROM products")->fetch_assoc()['count'];
+$low_stock_products = $conn->query("SELECT COUNT(*) as count FROM product_stock WHERE stock_quantity <= min_stock")->fetch_assoc()['count'];
+$out_of_stock = $conn->query("SELECT COUNT(*) as count FROM product_stock WHERE stock_quantity = 0")->fetch_assoc()['count'];
 
-// Message statistics
-$stats['total_messages'] = $conn->query("SELECT COUNT(*) as count FROM messages")->fetch_assoc()['count'];
-$stats['unread_messages'] = $conn->query("SELECT COUNT(*) as count FROM messages WHERE is_read=0")->fetch_assoc()['count'];
-$stats['read_messages'] = $conn->query("SELECT COUNT(*) as count FROM messages WHERE is_read=1")->fetch_assoc()['count'];
+// Top selling products
+$top_products = $conn->query("
+    SELECT p.name, SUM(s.quantity) as total_qty, SUM(s.total_price) as total_sales 
+    FROM sales s 
+    JOIN products p ON s.product_id = p.id 
+    GROUP BY s.product_id 
+    ORDER BY total_sales DESC 
+    LIMIT 5
+");
 
-// Recent activities
-$recent_admins = $conn->query("SELECT username, role, created_at FROM admin ORDER BY created_at DESC LIMIT 5");
-$recent_messages = $conn->query("SELECT name, email, created_at FROM messages ORDER BY created_at DESC LIMIT 5");
-$recent_products = $conn->query("SELECT name, price, created_at FROM products ORDER BY created_at DESC LIMIT 5");
+// Recent sales
+$recent_sales = $conn->query("
+    SELECT s.*, p.name as product_name 
+    FROM sales s 
+    JOIN products p ON s.product_id = p.id 
+    ORDER BY s.created_at DESC 
+    LIMIT 10
+");
 
-// Activity by month (messages)
-$monthly_messages = $conn->query("
-    SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count 
-    FROM messages 
-    WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+// Low stock alert
+$low_stock_list = $conn->query("
+    SELECT p.name, ps.stock_quantity, ps.min_stock 
+    FROM product_stock ps 
+    JOIN products p ON ps.product_id = p.id 
+    WHERE ps.stock_quantity <= ps.min_stock 
+    ORDER BY ps.stock_quantity ASC 
+    LIMIT 5
+");
+
+// Monthly sales trend (last 6 months)
+$monthly_sales = $conn->query("
+    SELECT DATE_FORMAT(sale_date, '%Y-%m') as month, 
+           SUM(total_price) as revenue,
+           COUNT(*) as transactions
+    FROM sales 
+    WHERE sale_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
     GROUP BY month 
     ORDER BY month ASC
 ");
 
-// System info
-$db_size_result = $conn->query("
-    SELECT 
-        ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) as size_mb
-    FROM information_schema.tables 
-    WHERE table_schema = 'curupwater'
+// Sales by product category (if you have categories, otherwise by product)
+$sales_by_product = $conn->query("
+    SELECT p.name, SUM(s.total_price) as revenue 
+    FROM sales s 
+    JOIN products p ON s.product_id = p.id 
+    WHERE MONTH(s.sale_date) = MONTH(CURDATE()) 
+    GROUP BY p.id 
+    ORDER BY revenue DESC 
+    LIMIT 5
 ");
-$db_size = $db_size_result->fetch_assoc()['size_mb'];
-
-// Get PHP version and other system info
-$php_version = phpversion();
-$server_software = $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown';
 ?>
 
 <!DOCTYPE html>
@@ -110,57 +127,57 @@ $server_software = $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown';
         <main class="main-content">
             <div class="content-header">
                 <div>
-                    <h1><i class="fas fa-chart-line"></i> Dashboard Aplikasi</h1>
-                    <p>Statistik & monitoring sistem Curup Water</p>
+                    <h1><i class="fas fa-chart-line"></i> Dashboard Analytics</h1>
+                    <p>Monitoring penjualan, stok, dan performa bisnis Curup Water</p>
                 </div>
                 <div class="header-actions">
-                    <span class="last-update"><i class="fas fa-clock"></i> Update: <?= date('d/m/Y H:i') ?></span>
+                    <span class="last-update"><i class="fas fa-sync-alt"></i> Update: <?= date('d/m/Y H:i') ?></span>
                 </div>
             </div>
 
-            <!-- Summary Cards -->
+            <!-- Revenue Summary Cards -->
             <div class="stats-grid">
-                <div class="stat-card primary">
+                <div class="stat-card revenue">
                     <div class="stat-icon">
-                        <i class="fas fa-users-cog"></i>
+                        <i class="fas fa-money-bill-wave"></i>
                     </div>
                     <div class="stat-info">
-                        <h3><?= $stats['total_admins'] ?></h3>
-                        <p>Total Administrator</p>
-                        <small><?= $stats['super_admins'] ?> Super | <?= $stats['app_admins'] ?> App | <?= $stats['website_admins'] ?> Web</small>
+                        <h3>Rp <?= number_format($today_sales, 0, ',', '.') ?></h3>
+                        <p>Penjualan Hari Ini</p>
+                        <small><?= $today_transactions ?> Transaksi</small>
                     </div>
                 </div>
 
                 <div class="stat-card success">
                     <div class="stat-icon">
-                        <i class="fas fa-box-open"></i>
+                        <i class="fas fa-calendar-alt"></i>
                     </div>
                     <div class="stat-info">
-                        <h3><?= $stats['total_products'] ?></h3>
-                        <p>Total Produk</p>
-                        <small><?= $stats['active_products'] ?> Aktif | <?= $stats['total_products'] - $stats['active_products'] ?> Non-aktif</small>
+                        <h3>Rp <?= number_format($month_sales, 0, ',', '.') ?></h3>
+                        <p>Penjualan Bulan Ini</p>
+                        <small><?= $month_transactions ?> Transaksi</small>
+                    </div>
+                </div>
+
+                <div class="stat-card primary">
+                    <div class="stat-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Rp <?= number_format($year_sales, 0, ',', '.') ?></h3>
+                        <p>Penjualan Tahun Ini</p>
+                        <small><?= date('Y') ?></small>
                     </div>
                 </div>
 
                 <div class="stat-card warning">
                     <div class="stat-icon">
-                        <i class="fas fa-envelope"></i>
+                        <i class="fas fa-boxes"></i>
                     </div>
                     <div class="stat-info">
-                        <h3><?= $stats['total_messages'] ?></h3>
-                        <p>Total Pesan</p>
-                        <small><?= $stats['unread_messages'] ?> Belum Dibaca</small>
-                    </div>
-                </div>
-
-                <div class="stat-card info">
-                    <div class="stat-icon">
-                        <i class="fas fa-images"></i>
-                    </div>
-                    <div class="stat-info">
-                        <h3><?= $stats['total_photos'] + $stats['total_videos'] ?></h3>
-                        <p>Media Gallery</p>
-                        <small><?= $stats['total_photos'] ?> Foto | <?= $stats['total_videos'] ?> Video</small>
+                        <h3><?= $total_products ?></h3>
+                        <p>Total Produk</p>
+                        <small class="text-danger"><?= $low_stock_products ?> Stok Menipis | <?= $out_of_stock ?> Habis</small>
                     </div>
                 </div>
             </div>
@@ -169,19 +186,19 @@ $server_software = $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown';
             <div class="chart-grid">
                 <div class="card">
                     <div class="card-header">
-                        <h3><i class="fas fa-chart-bar"></i> Statistik Konten</h3>
+                        <h3><i class="fas fa-chart-area"></i> Trend Penjualan 6 Bulan</h3>
                     </div>
                     <div class="card-body">
-                        <canvas id="contentChart" height="80"></canvas>
+                        <canvas id="salesTrendChart" height="80"></canvas>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-header">
-                        <h3><i class="fas fa-chart-line"></i> Pesan 6 Bulan Terakhir</h3>
+                        <h3><i class="fas fa-chart-pie"></i> Penjualan Per Produk (Bulan Ini)</h3>
                     </div>
                     <div class="card-body">
-                        <canvas id="messagesChart" height="80"></canvas>
+                        <canvas id="productSalesChart" height="80"></canvas>
                     </div>
                 </div>
             </div>
@@ -190,33 +207,31 @@ $server_software = $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown';
             <div class="activity-grid">
                 <div class="card">
                     <div class="card-header">
-                        <h3><i class="fas fa-user-clock"></i> Admin Terbaru</h3>
+                        <h3><i class="fas fa-trophy"></i> Produk Terlaris</h3>
                     </div>
                     <div class="card-body">
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>Username</th>
-                                    <th>Role</th>
-                                    <th>Dibuat</th>
+                                    <th>Produk</th>
+                                    <th>Qty Terjual</th>
+                                    <th>Total Penjualan</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php while ($admin = $recent_admins->fetch_assoc()): ?>
-                                <tr>
-                                    <td><strong><?= htmlspecialchars($admin['username']) ?></strong></td>
-                                    <td>
-                                        <?php if ($admin['role'] === 'super_admin'): ?>
-                                            <span class="badge badge-gold">Super Admin</span>
-                                        <?php elseif ($admin['role'] === 'app_admin'): ?>
-                                            <span class="badge badge-orange">Admin Aplikasi</span>
-                                        <?php else: ?>
-                                            <span class="badge badge-blue">Admin Website</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td><?= date('d/m/Y H:i', strtotime($admin['created_at'])) ?></td>
-                                </tr>
-                                <?php endwhile; ?>
+                                <?php if ($top_products->num_rows > 0): ?>
+                                    <?php while ($product = $top_products->fetch_assoc()): ?>
+                                    <tr>
+                                        <td><strong><?= htmlspecialchars($product['name']) ?></strong></td>
+                                        <td><?= number_format($product['total_qty']) ?> unit</td>
+                                        <td><span class="text-success">Rp <?= number_format($product['total_sales'], 0, ',', '.') ?></span></td>
+                                    </tr>
+                                    <?php endwhile; ?>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted">Belum ada data penjualan</td>
+                                    </tr>
+                                <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
@@ -224,66 +239,78 @@ $server_software = $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown';
 
                 <div class="card">
                     <div class="card-header">
-                        <h3><i class="fas fa-envelope-open-text"></i> Pesan Terbaru</h3>
+                        <h3><i class="fas fa-exclamation-triangle"></i> Alert Stok Menipis</h3>
                     </div>
                     <div class="card-body">
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>Nama</th>
-                                    <th>Email</th>
-                                    <th>Tanggal</th>
+                                    <th>Produk</th>
+                                    <th>Stok</th>
+                                    <th>Min. Stok</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php while ($msg = $recent_messages->fetch_assoc()): ?>
-                                <tr>
-                                    <td><strong><?= htmlspecialchars($msg['name']) ?></strong></td>
-                                    <td><?= htmlspecialchars($msg['email']) ?></td>
-                                    <td><?= date('d/m/Y H:i', strtotime($msg['created_at'])) ?></td>
-                                </tr>
-                                <?php endwhile; ?>
+                                <?php if ($low_stock_list->num_rows > 0): ?>
+                                    <?php while ($item = $low_stock_list->fetch_assoc()): ?>
+                                    <tr>
+                                        <td><strong><?= htmlspecialchars($item['name']) ?></strong></td>
+                                        <td>
+                                            <span class="badge <?= $item['stock_quantity'] == 0 ? 'badge-danger' : 'badge-warning' ?>">
+                                                <?= $item['stock_quantity'] ?> unit
+                                            </span>
+                                        </td>
+                                        <td><?= $item['min_stock'] ?> unit</td>
+                                    </tr>
+                                    <?php endwhile; ?>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="3" class="text-center text-success">✓ Semua stok aman</td>
+                                    </tr>
+                                <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-            <!-- System Info -->
+            <!-- Recent Transactions -->
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-server"></i> Informasi Sistem</h3>
+                    <h3><i class="fas fa-receipt"></i> Transaksi Terbaru</h3>
                 </div>
                 <div class="card-body">
-                    <div class="system-info-grid">
-                        <div class="info-item">
-                            <i class="fas fa-database"></i>
-                            <div>
-                                <strong>Database Size</strong>
-                                <p><?= $db_size ?> MB</p>
-                            </div>
-                        </div>
-                        <div class="info-item">
-                            <i class="fab fa-php"></i>
-                            <div>
-                                <strong>PHP Version</strong>
-                                <p><?= $php_version ?></p>
-                            </div>
-                        </div>
-                        <div class="info-item">
-                            <i class="fas fa-server"></i>
-                            <div>
-                                <strong>Web Server</strong>
-                                <p><?= $server_software ?></p>
-                            </div>
-                        </div>
-                        <div class="info-item">
-                            <i class="fas fa-calendar"></i>
-                            <div>
-                                <strong>Server Time</strong>
-                                <p><?= date('d M Y, H:i:s') ?></p>
-                            </div>
-                        </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Tanggal</th>
+                                    <th>Produk</th>
+                                    <th>Pelanggan</th>
+                                    <th>Qty</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if ($recent_sales->num_rows > 0): ?>
+                                    <?php while ($sale = $recent_sales->fetch_assoc()): ?>
+                                    <tr>
+                                        <td>#<?= $sale['id'] ?></td>
+                                        <td><?= date('d/m/Y', strtotime($sale['sale_date'])) ?></td>
+                                        <td><strong><?= htmlspecialchars($sale['product_name']) ?></strong></td>
+                                        <td><?= htmlspecialchars($sale['customer_name']) ?></td>
+                                        <td><?= $sale['quantity'] ?> unit</td>
+                                        <td><span class="text-success">Rp <?= number_format($sale['total_price'], 0, ',', '.') ?></span></td>
+                                    </tr>
+                                    <?php endwhile; ?>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">Belum ada transaksi</td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -353,6 +380,8 @@ $server_software = $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown';
         .badge-gold { background: #fbbf24; color: #78350f; }
         .badge-orange { background: #fb923c; color: white; }
         .badge-blue { background: #3b82f6; color: white; }
+        .badge-warning { background: #fef3c7; color: #92400e; font-weight: 600; }
+        .badge-danger { background: #fee2e2; color: #991b1b; font-weight: 600; }
         
         .stat-card.primary .stat-icon { background: #dbeafe; color: #1e40af; }
         .stat-card.success .stat-icon { background: #d1fae5; color: #065f46; }
@@ -365,65 +394,143 @@ $server_software = $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown';
             color: #64748b;
             font-size: 0.85rem;
         }
+        
+        .table-responsive {
+            overflow-x: auto;
+        }
+        
+        .text-success {
+            color: #10b981;
+            font-weight: 600;
+        }
+        
+        .text-muted {
+            color: #9ca3af;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
     </style>
 
     <script>
-        // Content Statistics Chart
-        const contentCtx = document.getElementById('contentChart').getContext('2d');
-        new Chart(contentCtx, {
-            type: 'bar',
+        // Sales Trend Chart (6 Months)
+        const salesTrendCtx = document.getElementById('salesTrendChart').getContext('2d');
+        <?php 
+        $months_labels = [];
+        $revenue_data = [];
+        $transactions_data = [];
+        while ($row = $monthly_sales->fetch_assoc()) {
+            $months_labels[] = "'" . date('M Y', strtotime($row['month'] . '-01')) . "'";
+            $revenue_data[] = $row['revenue'];
+            $transactions_data[] = $row['transactions'];
+        }
+        ?>
+        
+        new Chart(salesTrendCtx, {
+            type: 'line',
             data: {
-                labels: ['Produk', 'Hero Slides', 'Foto Gallery', 'Video Gallery'],
+                labels: [<?= implode(',', $months_labels) ?>],
                 datasets: [{
-                    label: 'Total',
-                    data: [<?= $stats['total_products'] ?>, <?= $stats['total_hero_slides'] ?>, <?= $stats['total_photos'] ?>, <?= $stats['total_videos'] ?>],
-                    backgroundColor: '#3b82f6'
+                    label: 'Penjualan (Rp)',
+                    data: [<?= implode(',', $revenue_data) ?>],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: 'y'
                 }, {
-                    label: 'Aktif',
-                    data: [<?= $stats['active_products'] ?>, <?= $stats['active_hero_slides'] ?>, <?= $stats['active_photos'] ?>, <?= $stats['active_videos'] ?>],
-                    backgroundColor: '#10b981'
+                    label: 'Transaksi',
+                    data: [<?= implode(',', $transactions_data) ?>],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: 'y1'
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
                 plugins: {
                     legend: {
                         position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    if (context.datasetIndex === 0) {
+                                        label += 'Rp ' + new Intl.NumberFormat('id-ID').format(context.parsed.y);
+                                    } else {
+                                        label += context.parsed.y + ' transaksi';
+                                    }
+                                }
+                                return label;
+                            }
+                        }
                     }
                 },
                 scales: {
                     y: {
-                        beginAtZero: true
-                    }
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'Rp ' + new Intl.NumberFormat('id-ID', {notation: 'compact'}).format(value);
+                            }
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        beginAtZero: true,
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                    },
                 }
             }
         });
 
-        // Messages Chart
-        const messagesCtx = document.getElementById('messagesChart').getContext('2d');
-        const messageData = [
-            <?php 
-            $months = [];
-            $counts = [];
-            while ($row = $monthly_messages->fetch_assoc()) {
-                $months[] = "'" . date('M Y', strtotime($row['month'] . '-01')) . "'";
-                $counts[] = $row['count'];
-            }
-            ?>
-        ];
+        // Product Sales Chart (Doughnut Chart)
+        const productSalesCtx = document.getElementById('productSalesChart').getContext('2d');
+        <?php 
+        $product_labels = [];
+        $product_revenues = [];
+        while ($row = $sales_by_product->fetch_assoc()) {
+            $product_labels[] = "'" . htmlspecialchars($row['name']) . "'";
+            $product_revenues[] = $row['revenue'];
+        }
+        ?>
         
-        new Chart(messagesCtx, {
-            type: 'line',
+        new Chart(productSalesCtx, {
+            type: 'doughnut',
             data: {
-                labels: [<?= implode(',', $months) ?>],
+                labels: [<?= implode(',', $product_labels) ?>],
                 datasets: [{
-                    label: 'Pesan Masuk',
-                    data: [<?= implode(',', $counts) ?>],
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    tension: 0.4,
-                    fill: true
+                    label: 'Penjualan',
+                    data: [<?= implode(',', $product_revenues) ?>],
+                    backgroundColor: [
+                        '#3b82f6',
+                        '#10b981',
+                        '#f59e0b',
+                        '#ef4444',
+                        '#8b5cf6'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
                 }]
             },
             options: {
@@ -431,12 +538,21 @@ $server_software = $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown';
                 maintainAspectRatio: true,
                 plugins: {
                     legend: {
-                        position: 'top',
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true
+                        position: 'right',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += 'Rp ' + new Intl.NumberFormat('id-ID').format(context.parsed);
+                                }
+                                return label;
+                            }
+                        }
                     }
                 }
             }
